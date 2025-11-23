@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { AVAILABLE_PAIRS, INITIAL_BALANCE, INITIAL_PRICES } from '../constants';
 import { MarketState, Position, AISignal, ViewState } from '../types';
@@ -11,11 +10,13 @@ import SignalCard from './SignalCard';
 import IndicatorMetrics from './IndicatorMetrics';
 import TokenIcon from './TokenIcon';
 import WhaleAnalysis from './WhaleAnalysis';
-import { Wallet, LayoutGrid, ChevronDown, Activity, Zap, BarChart2, LogOut } from 'lucide-react';
+import { Wallet, LayoutGrid, ChevronDown, Activity, Zap, BarChart2, LogOut, LineChart, Target, List, Layers } from 'lucide-react';
 
 interface DashboardProps {
   onLogout: () => void;
 }
+
+type MobileTab = 'MARKET' | 'TRADE' | 'POSITIONS' | 'WHALE';
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   // State
@@ -28,6 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [currentPrices, setCurrentPrices] = useState<Record<string, number>>(INITIAL_PRICES);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('MARKET');
 
   // 1. Start Market Service ONE time on mount. Do not restart on pair switch.
   useEffect(() => {
@@ -146,8 +148,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     <div className="min-h-screen bg-background text-white flex flex-col font-sans selection:bg-primary/30">
       
       {/* Header */}
-      <header className="h-16 border-b border-white/5 bg-surface/50 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between px-6">
-        <div className="flex items-center gap-6">
+      <header className="h-16 border-b border-white/5 bg-surface/50 backdrop-blur-md sticky top-0 z-50 flex items-center justify-between px-4 md:px-6">
+        <div className="flex items-center gap-4 md:gap-6">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView(ViewState.DASHBOARD)}>
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
               <Zap className="w-5 h-5 text-white fill-white" />
@@ -160,15 +162,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           <div className="h-6 w-px bg-white/10 mx-2 hidden sm:block" />
 
           {/* Token Selector */}
-          <div className="relative flex items-center gap-4">
+          <div className="relative flex items-center gap-3 md:gap-4">
             <div className="relative">
               <button 
                 onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-                className="flex items-center gap-3 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-sm font-medium min-w-[160px]"
+                className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-sm font-medium md:min-w-[160px]"
               >
                 <TokenIcon pair={selectedPair} size="sm" />
-                <span>{selectedPair}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${isSelectorOpen ? 'rotate-180' : ''}`} />
+                <span className="hidden md:inline">{selectedPair}</span>
+                <span className="md:hidden">{selectedPair.split('/')[0]}</span>
+                <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 text-gray-400 ml-auto transition-transform ${isSelectorOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {isSelectorOpen && (
@@ -199,15 +202,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
             {/* LIVE PRICE DISPLAY */}
             <div className="flex flex-col">
-               <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5">Live Price</span>
-               <div className="text-lg font-mono font-bold text-neonBlue leading-none animate-pulse-slow">
+               <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-wider leading-none mb-0.5">Live Price</span>
+               <div className="text-base md:text-lg font-mono font-bold text-neonBlue leading-none animate-pulse-slow">
                  ${getCurrentPriceDisplay()}
                </div>
             </div>
           </div>
         </div>
 
-        {/* Center Nav */}
+        {/* Center Nav (Desktop Only) */}
         <div className="hidden md:flex bg-white/5 p-1 rounded-full border border-white/5">
            <button 
              onClick={() => setCurrentView(ViewState.DASHBOARD)}
@@ -225,12 +228,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         </div>
 
         {/* Right Header Actions */}
-        <div className="flex items-center gap-6">
-          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-full">
-            <Wallet className="w-4 h-4 text-emerald-400" />
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-full">
+            <Wallet className="w-3 h-3 md:w-4 md:h-4 text-emerald-400" />
             <div className="flex flex-col items-end leading-none">
-              <span className="text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider">Demo Balance</span>
-              <span className="font-mono font-bold text-emerald-400">${balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="text-[8px] md:text-[10px] text-emerald-500/70 font-bold uppercase tracking-wider hidden sm:block">Demo Balance</span>
+              <span className="font-mono text-xs md:text-sm font-bold text-emerald-400">${balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
             </div>
           </div>
           
@@ -244,67 +247,161 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 p-4 md:p-6 overflow-hidden">
-        {currentView === ViewState.DASHBOARD ? (
-          <div className="max-w-[1920px] mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* LEFT COLUMN (Charts & Data) */}
-            <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-6">
-              {/* Chart Section */}
-              <div className="relative group">
-                {marketState && marketState.pair === selectedPair ? (
-                  <Chart 
-                    data={marketState.candles} 
-                    indicators={marketState.indicators} 
-                    pair={selectedPair} 
-                  />
-                ) : (
-                  <div className="h-[450px] glass-panel rounded-xl flex flex-col items-center justify-center gap-4">
-                    <Activity className="w-10 h-10 text-primary animate-spin" />
-                    <span className="text-sm font-mono text-gray-400">CONNECTING FEED: {selectedPair}...</span>
-                  </div>
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 md:p-6 overflow-hidden relative">
+        
+        {/* DESKTOP LAYOUT (Hidden on mobile) */}
+        <div className="hidden md:block h-full">
+            {currentView === ViewState.DASHBOARD ? (
+            <div className="max-w-[1920px] mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* LEFT COLUMN (Charts & Data) */}
+                <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-6">
+                <div className="relative group">
+                    {marketState && marketState.pair === selectedPair ? (
+                    <Chart 
+                        data={marketState.candles} 
+                        indicators={marketState.indicators} 
+                        pair={selectedPair} 
+                    />
+                    ) : (
+                    <div className="h-[450px] glass-panel rounded-xl flex flex-col items-center justify-center gap-4">
+                        <Activity className="w-10 h-10 text-primary animate-spin" />
+                        <span className="text-sm font-mono text-gray-400">CONNECTING FEED: {selectedPair}...</span>
+                    </div>
+                    )}
+                </div>
+
+                <IndicatorMetrics marketState={marketState} />
+
+                <PositionsTable 
+                    positions={positions} 
+                    currentPrices={currentPrices} 
+                    onClosePosition={handleClosePosition} 
+                />
+                </div>
+
+                {/* RIGHT COLUMN (Controls & Signals) */}
+                <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-6">
+                <div className="flex-1 min-h-[500px]">
+                    <TradePanel 
+                    marketState={marketState && marketState.pair === selectedPair ? marketState : null} 
+                    balance={balance} 
+                    onExecuteTrade={handleExecuteTrade} 
+                    />
+                </div>
+                <div className="h-auto">
+                    <SignalCard 
+                    signal={signal} 
+                    isLoading={isGeneratingSignal} 
+                    onGenerate={handleGenerateSignal} 
+                    />
+                </div>
+                </div>
+            </div>
+            ) : (
+            /* WHALE ANALYSIS VIEW (Desktop) */
+            <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
+                <WhaleAnalysis marketState={marketState} />
+            </div>
+            )}
+        </div>
+
+        {/* MOBILE LAYOUT (Stacked & Tabbed) */}
+        <div className="md:hidden h-full pb-20 overflow-y-auto">
+             {/* Tab Content */}
+             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {mobileTab === 'MARKET' && (
+                    <div className="flex flex-col gap-4">
+                        {marketState && marketState.pair === selectedPair ? (
+                            <Chart 
+                                data={marketState.candles} 
+                                indicators={marketState.indicators} 
+                                pair={selectedPair} 
+                            />
+                        ) : (
+                            <div className="h-[350px] glass-panel rounded-xl flex flex-col items-center justify-center gap-4">
+                                <Activity className="w-10 h-10 text-primary animate-spin" />
+                                <span className="text-xs font-mono text-gray-400">LOADING FEED...</span>
+                            </div>
+                        )}
+                        <IndicatorMetrics marketState={marketState} />
+                    </div>
                 )}
-              </div>
 
-              {/* Indicator Dashboard */}
-              <IndicatorMetrics marketState={marketState} />
+                {mobileTab === 'TRADE' && (
+                    <div className="flex flex-col gap-4">
+                        <SignalCard 
+                            signal={signal} 
+                            isLoading={isGeneratingSignal} 
+                            onGenerate={handleGenerateSignal} 
+                        />
+                        <TradePanel 
+                            marketState={marketState && marketState.pair === selectedPair ? marketState : null} 
+                            balance={balance} 
+                            onExecuteTrade={handleExecuteTrade} 
+                        />
+                    </div>
+                )}
 
-              {/* Positions Table */}
-              <PositionsTable 
-                positions={positions} 
-                currentPrices={currentPrices} 
-                onClosePosition={handleClosePosition} 
-              />
-            </div>
+                {mobileTab === 'POSITIONS' && (
+                    <div className="h-full">
+                        <PositionsTable 
+                            positions={positions} 
+                            currentPrices={currentPrices} 
+                            onClosePosition={handleClosePosition} 
+                        />
+                    </div>
+                )}
 
-            {/* RIGHT COLUMN (Controls & Signals) */}
-            <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-6">
-              {/* Trade Panel */}
-              <div className="flex-1 min-h-[500px]">
-                <TradePanel 
-                  marketState={marketState && marketState.pair === selectedPair ? marketState : null} 
-                  balance={balance} 
-                  onExecuteTrade={handleExecuteTrade} 
-                />
-              </div>
+                {mobileTab === 'WHALE' && (
+                    <WhaleAnalysis marketState={marketState} />
+                )}
+             </div>
+        </div>
 
-              {/* AI Signal Card */}
-              <div className="h-auto">
-                <SignalCard 
-                  signal={signal} 
-                  isLoading={isGeneratingSignal} 
-                  onGenerate={handleGenerateSignal} 
-                />
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* WHALE ANALYSIS VIEW */
-          <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
-             <WhaleAnalysis marketState={marketState} />
-          </div>
-        )}
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a0a0a]/90 backdrop-blur-lg border-t border-white/10 z-50 flex items-center justify-around px-2 pb-safe">
+          <button 
+            onClick={() => setMobileTab('MARKET')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mobileTab === 'MARKET' ? 'text-primary' : 'text-gray-500'}`}
+          >
+             <LineChart className="w-5 h-5" />
+             <span className="text-[10px] font-medium">Market</span>
+          </button>
+          
+          <button 
+            onClick={() => setMobileTab('TRADE')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mobileTab === 'TRADE' ? 'text-primary' : 'text-gray-500'}`}
+          >
+             <Target className="w-5 h-5" />
+             <span className="text-[10px] font-medium">Trade</span>
+          </button>
+
+          <button 
+            onClick={() => setMobileTab('POSITIONS')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors relative ${mobileTab === 'POSITIONS' ? 'text-primary' : 'text-gray-500'}`}
+          >
+             <div className="relative">
+                <List className="w-5 h-5" />
+                {positions.length > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-primary text-white text-[9px] font-bold px-1 rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                        {positions.length}
+                    </span>
+                )}
+             </div>
+             <span className="text-[10px] font-medium">Positions</span>
+          </button>
+
+          <button 
+            onClick={() => setMobileTab('WHALE')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mobileTab === 'WHALE' ? 'text-primary' : 'text-gray-500'}`}
+          >
+             <Layers className="w-5 h-5" />
+             <span className="text-[10px] font-medium">Whale</span>
+          </button>
+      </nav>
     </div>
   );
 }

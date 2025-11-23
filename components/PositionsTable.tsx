@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Position } from '../types';
-import { TrendingUp, TrendingDown, Wallet, Skull, AlertTriangle, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Skull, AlertTriangle, X, ChevronRight, Clock } from 'lucide-react';
 import TokenIcon from './TokenIcon';
 
 interface PositionsTableProps {
@@ -43,8 +43,8 @@ const PositionsTable: React.FC<PositionsTableProps> = ({ positions, currentPrice
 
   return (
     <>
-      <div className="glass-panel rounded-xl overflow-hidden flex flex-col border border-white/5 shadow-xl bg-[#0a0a0a]">
-        <div className="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center">
+      <div className="glass-panel rounded-xl overflow-hidden flex flex-col border border-white/5 shadow-xl bg-[#0a0a0a] h-full">
+        <div className="p-4 border-b border-white/5 bg-white/5 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
           <h3 className="font-bold text-white flex items-center gap-2">
               Open Positions
           </h3>
@@ -53,7 +53,7 @@ const PositionsTable: React.FC<PositionsTableProps> = ({ positions, currentPrice
           </span>
         </div>
         
-        <div className="overflow-x-auto custom-scrollbar">
+        <div className="overflow-y-auto custom-scrollbar flex-1">
           {positions.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500 text-sm gap-3">
                   <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
@@ -62,108 +62,164 @@ const PositionsTable: React.FC<PositionsTableProps> = ({ positions, currentPrice
                   <p>No active positions found</p>
               </div>
           ) : (
-              <table className="w-full text-sm text-left text-gray-400 min-w-[600px]">
-              <thead className="text-xs text-gray-500 uppercase bg-black/20 sticky top-0 backdrop-blur-sm z-10">
-                  <tr>
-                  <th className="px-6 py-4 font-medium tracking-wider">Asset</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-right">Size (Margin)</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-right">Entry / Liq</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-right">Mark Price</th>
-                  <th className="px-6 py-4 font-medium tracking-wider text-right">PnL (ROE)</th>
-                  <th className="px-6 py-4 text-right">Action</th>
-                  </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                  {positions.map((pos) => {
-                  const currentPrice = currentPrices[pos.pair] || pos.entryPrice;
-                  const isLong = pos.type === 'LONG';
-                  
-                  // Calculate PnL dynamically
-                  const sizeInCoin = (pos.amount * pos.leverage) / pos.entryPrice;
-                  const rawPnL = (currentPrice - pos.entryPrice) * sizeInCoin * (isLong ? 1 : -1);
-                  const pnlPercentage = (rawPnL / pos.amount) * 100;
-                  const isProfitRow = rawPnL >= 0;
+            <>
+              {/* DESKTOP TABLE VIEW (Hidden on Mobile) */}
+              <div className="hidden md:block">
+                <table className="w-full text-sm text-left text-gray-400 min-w-[600px]">
+                <thead className="text-xs text-gray-500 uppercase bg-black/20 sticky top-0 backdrop-blur-sm z-10">
+                    <tr>
+                    <th className="px-6 py-4 font-medium tracking-wider">Asset</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-right">Size (Margin)</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-right">Entry / Liq</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-right">Mark Price</th>
+                    <th className="px-6 py-4 font-medium tracking-wider text-right">PnL (ROE)</th>
+                    <th className="px-6 py-4 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                    {positions.map((pos) => {
+                    const currentPrice = currentPrices[pos.pair] || pos.entryPrice;
+                    const isLong = pos.type === 'LONG';
+                    
+                    const sizeInCoin = (pos.amount * pos.leverage) / pos.entryPrice;
+                    const rawPnL = (currentPrice - pos.entryPrice) * sizeInCoin * (isLong ? 1 : -1);
+                    const pnlPercentage = (rawPnL / pos.amount) * 100;
+                    const isProfitRow = rawPnL >= 0;
+                    const positionValue = pos.amount * pos.leverage;
+                    const distToLiq = Math.abs((currentPrice - pos.liquidationPrice) / currentPrice) * 100;
+                    const isHighRisk = distToLiq < 5;
 
-                  // Calculate Position Value
-                  const positionValue = pos.amount * pos.leverage;
+                    return (
+                        <tr key={pos.id} className="hover:bg-white/5 transition-colors group">
+                        <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <TokenIcon pair={pos.pair} size="md" />
+                                <div>
+                                    <div className="text-white font-bold">{pos.pair.split('/')[0]}</div>
+                                    <div className={`text-[10px] font-bold flex items-center gap-1 mt-0.5 uppercase tracking-wide px-1.5 py-0.5 rounded w-fit ${isLong ? 'bg-bullish/10 text-bullish' : 'bg-bearish/10 text-bearish'}`}>
+                                        {isLong ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                        {pos.leverage}x {pos.type}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                            <div className="text-white font-mono font-medium">${positionValue.toLocaleString()}</div>
+                            <div className="text-[11px] text-gray-500 flex items-center justify-end gap-1 mt-1">
+                                <Wallet className="w-3 h-3 opacity-70" />
+                                Margin: <span className="text-gray-300">${pos.amount.toLocaleString()}</span>
+                            </div>
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono">
+                            <div className="text-gray-300 flex items-center justify-end gap-1">
+                                <span className="text-xs text-gray-500">Entry</span> ${pos.entryPrice.toFixed(2)}
+                            </div>
+                            <div className={`text-[11px] flex items-center justify-end gap-1 mt-1 ${isHighRisk ? 'text-red-500 font-bold animate-pulse' : 'text-orange-400/80'}`}>
+                                <Skull className="w-3 h-3" />
+                                <span className="text-gray-600 mr-1">Liq</span> ${pos.liquidationPrice.toFixed(2)}
+                            </div>
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono">
+                            <div className="text-neonBlue font-medium">${currentPrice.toFixed(2)}</div>
+                            <div className="text-[10px] text-gray-500 mt-1">Current</div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                            <div className={`font-bold font-mono text-sm ${isProfitRow ? 'text-bullish' : 'text-bearish'}`}>
+                            {rawPnL > 0 ? '+' : ''}{rawPnL.toFixed(2)}
+                            </div>
+                            <div className={`text-[11px] font-medium mt-1 ${isProfitRow ? 'text-bullish/70' : 'text-bearish/70'}`}>
+                            {pnlPercentage.toFixed(2)}%
+                            </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                            <button
+                            onClick={() => handleCloseClick(pos.id)}
+                            className="bg-white/5 hover:bg-white/10 hover:text-white border border-white/10 hover:border-white/30 text-gray-400 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+                            >
+                                Close
+                            </button>
+                        </td>
+                        </tr>
+                    );
+                    })}
+                </tbody>
+                </table>
+              </div>
 
-                  // Risk Warning for Liquidation
-                  const distToLiq = Math.abs((currentPrice - pos.liquidationPrice) / currentPrice) * 100;
-                  const isHighRisk = distToLiq < 5; // < 5% distance
+              {/* MOBILE CARD VIEW (Visible on Mobile) */}
+              <div className="md:hidden p-4 space-y-4">
+                 {positions.map((pos) => {
+                    const currentPrice = currentPrices[pos.pair] || pos.entryPrice;
+                    const isLong = pos.type === 'LONG';
+                    const sizeInCoin = (pos.amount * pos.leverage) / pos.entryPrice;
+                    const rawPnL = (currentPrice - pos.entryPrice) * sizeInCoin * (isLong ? 1 : -1);
+                    const pnlPercentage = (rawPnL / pos.amount) * 100;
+                    const isProfitRow = rawPnL >= 0;
+                    const positionValue = pos.amount * pos.leverage;
 
-                  return (
-                      <tr key={pos.id} className="hover:bg-white/5 transition-colors group">
-                      {/* ASSET */}
-                      <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                              <TokenIcon pair={pos.pair} size="md" />
-                              <div>
-                                  <div className="text-white font-bold">{pos.pair.split('/')[0]}</div>
-                                  <div className={`text-[10px] font-bold flex items-center gap-1 mt-0.5 uppercase tracking-wide px-1.5 py-0.5 rounded w-fit ${isLong ? 'bg-bullish/10 text-bullish' : 'bg-bearish/10 text-bearish'}`}>
-                                      {isLong ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                      {pos.leverage}x {pos.type}
+                    return (
+                        <div key={pos.id} className="bg-white/5 rounded-xl border border-white/5 p-4 relative overflow-hidden">
+                           {/* PnL Background Tint */}
+                           <div className={`absolute right-0 top-0 bottom-0 w-1 ${isProfitRow ? 'bg-bullish' : 'bg-bearish'} opacity-50`}></div>
+                           
+                           <div className="flex justify-between items-start mb-4">
+                              <div className="flex items-center gap-3">
+                                  <TokenIcon pair={pos.pair} size="md" />
+                                  <div>
+                                      <div className="font-bold text-white text-base">{pos.pair.split('/')[0]}</div>
+                                      <div className={`text-[10px] font-bold flex items-center gap-1 uppercase tracking-wide px-1.5 py-0.5 rounded w-fit mt-1 ${isLong ? 'bg-bullish/10 text-bullish' : 'bg-bearish/10 text-bearish'}`}>
+                                          {isLong ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                                          {pos.leverage}x {pos.type}
+                                      </div>
                                   </div>
                               </div>
-                          </div>
-                      </td>
+                              <div className="text-right">
+                                  <div className={`font-mono font-bold text-lg ${isProfitRow ? 'text-bullish' : 'text-bearish'}`}>
+                                      {rawPnL > 0 ? '+' : ''}{rawPnL.toFixed(2)}
+                                  </div>
+                                  <div className={`text-xs font-medium ${isProfitRow ? 'text-bullish/70' : 'text-bearish/70'}`}>
+                                      {pnlPercentage.toFixed(2)}%
+                                  </div>
+                              </div>
+                           </div>
 
-                      {/* SIZE & MARGIN */}
-                      <td className="px-6 py-4 text-right">
-                          <div className="text-white font-mono font-medium">${positionValue.toLocaleString()}</div>
-                          <div className="text-[11px] text-gray-500 flex items-center justify-end gap-1 mt-1">
-                              <Wallet className="w-3 h-3 opacity-70" />
-                              Margin: <span className="text-gray-300">${pos.amount.toLocaleString()}</span>
-                          </div>
-                      </td>
+                           <div className="grid grid-cols-2 gap-4 mb-4">
+                              <div className="bg-black/20 rounded-lg p-2">
+                                  <div className="text-[10px] text-gray-500 uppercase">Margin</div>
+                                  <div className="text-sm font-mono text-gray-300">${pos.amount.toLocaleString()}</div>
+                              </div>
+                              <div className="bg-black/20 rounded-lg p-2">
+                                  <div className="text-[10px] text-gray-500 uppercase">Entry</div>
+                                  <div className="text-sm font-mono text-gray-300">${pos.entryPrice.toFixed(2)}</div>
+                              </div>
+                              <div className="bg-black/20 rounded-lg p-2">
+                                  <div className="text-[10px] text-gray-500 uppercase">Mark Price</div>
+                                  <div className="text-sm font-mono text-neonBlue">${currentPrice.toFixed(2)}</div>
+                              </div>
+                              <div className="bg-black/20 rounded-lg p-2">
+                                  <div className="text-[10px] text-gray-500 uppercase">Liq Price</div>
+                                  <div className="text-sm font-mono text-orange-400">${pos.liquidationPrice.toFixed(2)}</div>
+                              </div>
+                           </div>
 
-                      {/* ENTRY & LIQ */}
-                      <td className="px-6 py-4 text-right font-mono">
-                          <div className="text-gray-300 flex items-center justify-end gap-1">
-                              <span className="text-xs text-gray-500">Entry</span> ${pos.entryPrice.toFixed(2)}
-                          </div>
-                          <div className={`text-[11px] flex items-center justify-end gap-1 mt-1 ${isHighRisk ? 'text-red-500 font-bold animate-pulse' : 'text-orange-400/80'}`}>
-                              <Skull className="w-3 h-3" />
-                              <span className="text-gray-600 mr-1">Liq</span> ${pos.liquidationPrice.toFixed(2)}
-                          </div>
-                      </td>
-
-                      {/* MARK PRICE */}
-                      <td className="px-6 py-4 text-right font-mono">
-                          <div className="text-neonBlue font-medium">${currentPrice.toFixed(2)}</div>
-                          <div className="text-[10px] text-gray-500 mt-1">Current</div>
-                      </td>
-
-                      {/* PNL */}
-                      <td className="px-6 py-4 text-right">
-                          <div className={`font-bold font-mono text-sm ${isProfitRow ? 'text-bullish' : 'text-bearish'}`}>
-                          {rawPnL > 0 ? '+' : ''}{rawPnL.toFixed(2)}
-                          </div>
-                          <div className={`text-[11px] font-medium mt-1 ${isProfitRow ? 'text-bullish/70' : 'text-bearish/70'}`}>
-                          {pnlPercentage.toFixed(2)}%
-                          </div>
-                      </td>
-
-                      {/* ACTION */}
-                      <td className="px-6 py-4 text-right">
-                          <button
-                          onClick={() => handleCloseClick(pos.id)}
-                          className="bg-white/5 hover:bg-white/10 hover:text-white border border-white/10 hover:border-white/30 text-gray-400 px-4 py-2 rounded-lg text-xs font-medium transition-all"
-                          >
-                              Close
-                          </button>
-                      </td>
-                      </tr>
-                  );
-                  })}
-              </tbody>
-              </table>
+                           <button 
+                             onClick={() => handleCloseClick(pos.id)}
+                             className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg text-sm font-medium text-gray-300 transition-colors"
+                           >
+                             Close Position
+                           </button>
+                        </div>
+                    );
+                 })}
+              </div>
+            </>
           )}
         </div>
       </div>
 
       {/* CONFIRMATION MODAL */}
       {confirmId && positionToClose && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="glass-panel w-full max-w-sm p-6 rounded-xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative bg-[#0f0f0f]">
               <button 
                 onClick={handleCancel} 

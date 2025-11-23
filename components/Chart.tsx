@@ -32,17 +32,17 @@ const Chart: React.FC<ChartProps> = ({ data, pair }) => {
   const isPositive = lastPrice >= firstPrice;
 
   return (
-    <div className="h-[450px] w-full glass-panel rounded-xl p-4 relative overflow-hidden group">
+    <div className="h-[350px] md:h-[450px] w-full glass-panel rounded-xl p-4 relative overflow-hidden group">
       {/* Chart Header */}
       <div className="absolute top-5 left-5 z-10 flex items-center gap-3">
         <TokenIcon pair={pair} size="lg" className="shadow-lg shadow-black/40" />
         <div>
-           <h2 className="text-2xl font-bold text-white leading-none">
-             {pair.split('/')[0]} <span className="text-lg text-gray-500 font-normal">/USDT</span>
+           <h2 className="text-xl md:text-2xl font-bold text-white leading-none">
+             {pair.split('/')[0]} <span className="text-sm md:text-lg text-gray-500 font-normal">/USDT</span>
            </h2>
            <div className="flex items-center gap-2 mt-1">
-             <span className="text-xs font-mono bg-white/10 px-1.5 py-0.5 rounded text-gray-300">1m Timeframe</span>
-             <span className={`text-xs font-bold ${isPositive ? 'text-bullish' : 'text-bearish'}`}>
+             <span className="text-[10px] md:text-xs font-mono bg-white/10 px-1.5 py-0.5 rounded text-gray-300">1m Timeframe</span>
+             <span className={`text-[10px] md:text-xs font-bold ${isPositive ? 'text-bullish' : 'text-bearish'}`}>
                 Live
              </span>
            </div>
@@ -79,7 +79,7 @@ const Chart: React.FC<ChartProps> = ({ data, pair }) => {
             tickFormatter={(val) => val.toFixed(2)}
             tickLine={false}
             axisLine={false}
-            width={60}
+            width={50}
           />
           <YAxis 
             yAxisId="volume"
