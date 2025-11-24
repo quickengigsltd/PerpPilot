@@ -8,6 +8,15 @@ export interface Candle {
   volume: number;
 }
 
+export type Timeframe = '1m' | '5m' | '15m' | '30m' | '1h' | '4h';
+
+export interface ChartSignal {
+  time: number;
+  type: 'BUY' | 'SELL';
+  price: number;
+  reason: string;
+}
+
 export interface AdvancedMetrics {
   cvd: number; // Cumulative Volume Delta
   openInterest: number;
@@ -24,6 +33,11 @@ export interface IndicatorValues {
   macd: number;
   volumeSma: number;
   
+  // Bollinger Bands (New)
+  bollingerUpper: number;
+  bollingerLower: number;
+  bollingerMiddle: number;
+
   // New Core Indicators
   fvgPrice: number | null; // Nearest Fair Value Gap Price
   marketStructure: 'BULLISH' | 'BEARISH' | 'RANGING';
@@ -80,6 +94,7 @@ export interface ExchangeData {
   sellVolume: number;
   buyPercent: number;
   sellPercent: number;
+  volume: number; // Total volume helper
 }
 
 export interface WhaleStats {
@@ -111,9 +126,11 @@ export interface MarketState {
   whaleStats?: WhaleStats;
   macroStats?: MacroStats;
   isRealtime: boolean;
+  timeframe: Timeframe;
 }
 
 export enum ViewState {
   DASHBOARD = 'DASHBOARD',
   WHALE_ANALYSIS = 'WHALE_ANALYSIS',
+  AI_TRADER = 'AI_TRADER',
 }

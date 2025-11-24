@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { AVAILABLE_PAIRS, INITIAL_BALANCE, INITIAL_PRICES } from '../constants';
-import { MarketState, Position, AISignal, ViewState } from '../types';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { AVAILABLE_PAIRS, INITIAL_BALANCE, INITIAL_PRICES, TIMEFRAMES } from '../constants';
+import { MarketState, Position, AISignal, ViewState, Timeframe } from '../types';
 import { marketService } from '../services/marketData';
 import { generateAISignal } from '../services/geminiService';
 import Chart from './Chart';
@@ -10,38 +10,49 @@ import SignalCard from './SignalCard';
 import IndicatorMetrics from './IndicatorMetrics';
 import TokenIcon from './TokenIcon';
 import WhaleAnalysis from './WhaleAnalysis';
-import { Wallet, LayoutGrid, ChevronDown, Activity, Zap, BarChart2, LogOut, LineChart, Target, List, Layers } from 'lucide-react';
+import AiTrader from './AiTrader';
+import { Wallet, LayoutGrid, ChevronDown, Activity, Zap, BarChart2, LogOut, LineChart, Target, List, Layers, Bot, Power, BrainCircuit, Clock } from 'lucide-react';
 
 interface DashboardProps {
   onLogout: () => void;
 }
 
-type MobileTab = 'MARKET' | 'TRADE' | 'POSITIONS' | 'WHALE';
+type MobileTab = 'MARKET' | 'TRADE' | 'POSITIONS' | 'WHALE' | 'AI_TRADER';
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   // State
   const [selectedPair, setSelectedPair] = useState(AVAILABLE_PAIRS[0]);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>('5m'); // Default to 5m for 'Sniper' feel
   const [balance, setBalance] = useState(INITIAL_BALANCE);
   const [marketState, setMarketState] = useState<MarketState | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [signal, setSignal] = useState<AISignal | null>(null);
   const [isGeneratingSignal, setIsGeneratingSignal] = useState(false);
+  const [isAIActive, setIsAIActive] = useState(false); // NEW: Auto-Pilot State
   const [currentPrices, setCurrentPrices] = useState<Record<string, number>>(INITIAL_PRICES);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
   const [mobileTab, setMobileTab] = useState<MobileTab>('MARKET');
+  
+  // Refs for interval management
+  const aiIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 1. Start Market Service ONE time on mount. Do not restart on pair switch.
+  // 1. Start Market Service ONE time on mount.
   useEffect(() => {
     marketService.start();
-    // Cleanup optional, but we generally want to keep connection alive
-    // return () => marketService.stop(); 
   }, []);
 
-  // 2. Subscribe to updates and Handle Pair Switching
+  // 2. Handle Timeframe Switch
+  const handleTimeframeChange = async (tf: Timeframe) => {
+      setSelectedTimeframe(tf);
+      // Temporarily clear market state to show loading
+      // setMarketState(null); // Optional: if we want to show loading spinner
+      await marketService.switchTimeframe(tf);
+  };
+
+  // 3. Subscribe to updates and Handle Pair Switching
   useEffect(() => {
     // A. IMMEDIATE UPDATE: Fetch cached state for the new pair immediately.
-    // This prevents the "old price" lag by overwriting state synchronously.
     const cachedState = marketService.getMarketState(selectedPair);
     setMarketState(cachedState); 
 
@@ -64,24 +75,51 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     };
   }, [selectedPair]);
 
-  // Reset Signal when pair changes
+  // Reset Signal when pair changes, but keep AI active if it was on (it will regenerate)
   useEffect(() => {
     setSignal(null);
-  }, [selectedPair]);
+    if (isAIActive) {
+      handleGenerateSignal();
+    }
+  }, [selectedPair, selectedTimeframe]);
+
+  // AI Auto-Pilot Logic
+  useEffect(() => {
+    if (isAIActive) {
+      // Initial call
+      if (!signal && !isGeneratingSignal) {
+        handleGenerateSignal();
+      }
+      
+      // Set interval for every 60 seconds
+      aiIntervalRef.current = setInterval(() => {
+        handleGenerateSignal();
+      }, 60000);
+    } else {
+      if (aiIntervalRef.current) {
+        clearInterval(aiIntervalRef.current);
+        aiIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (aiIntervalRef.current) {
+        clearInterval(aiIntervalRef.current);
+      }
+    };
+  }, [isAIActive, selectedPair, selectedTimeframe]); 
 
   const handleGenerateSignal = async () => {
-    if (!marketState) return;
+    const freshState = marketService.getMarketState(selectedPair);
+    if (!freshState) return;
     
-    // VISUAL FEEDBACK: Clear previous signal immediately so user sees "Analyzing..."
-    setSignal(null);
     setIsGeneratingSignal(true);
 
     try {
       // ARTIFICIAL DELAY: Make it feel like it's "Thinking" deeply
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      // Pass full marketState to give AI access to Whale Data
-      const newSignal = await generateAISignal(marketState);
+      const newSignal = await generateAISignal(freshState);
       setSignal(newSignal);
     } catch (e) {
       console.error(e);
@@ -90,13 +128,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     }
   };
 
+  const toggleAI = () => {
+    setIsAIActive(!isAIActive);
+  };
+
   const handleExecuteTrade = (type: 'LONG' | 'SHORT', amount: number, leverage: number, sl: number, tp: number) => {
     if (amount > balance) return;
-    if (!marketState) return;
-
-    // Safety: Ensure we aren't trading on stale data from a previous pair
-    if (marketState.pair !== selectedPair) {
-        console.warn("Trade blocked: Market state mismatch");
+    
+    if (!marketState || marketState.pair !== selectedPair) {
+        console.warn("Trade blocked: Market data syncing");
         return;
     }
 
@@ -144,6 +184,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   };
 
+  // --- DERIVED STATE FOR CONSISTENCY ---
+  const displayState = (marketState && marketState.pair === selectedPair) ? marketState : null;
+
   return (
     <div className="min-h-screen bg-background text-white flex flex-col font-sans selection:bg-primary/30">
       
@@ -166,10 +209,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             <div className="relative">
               <button 
                 onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-                className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-sm font-medium md:min-w-[160px]"
+                className="flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-sm font-medium md:min-w-[160px] group"
               >
                 <TokenIcon pair={selectedPair} size="sm" />
-                <span className="hidden md:inline">{selectedPair}</span>
+                <span className="hidden md:inline group-hover:text-white transition-colors">{selectedPair}</span>
                 <span className="md:hidden">{selectedPair.split('/')[0]}</span>
                 <ChevronDown className={`w-3 h-3 md:w-4 md:h-4 text-gray-400 ml-auto transition-transform ${isSelectorOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -177,22 +220,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
               {isSelectorOpen && (
                 <>
                   <div 
-                    className="fixed inset-0 z-10" 
+                    className="fixed inset-0 z-40" 
                     onClick={() => setIsSelectorOpen(false)}
                   />
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-surfaceHighlight border border-white/10 rounded-xl shadow-2xl z-20 overflow-hidden py-1">
+                  <div className="absolute top-full left-0 mt-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-50 py-2 max-h-[400px] overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-200">
+                    <div className="sticky top-0 bg-[#1a1a1a] p-2 border-b border-white/5 mb-1 z-10">
+                        <span className="text-[10px] uppercase font-bold text-gray-500 px-2">Select Asset</span>
+                    </div>
                     {AVAILABLE_PAIRS.map(pair => (
                       <button
                         key={pair}
                         onClick={() => {
                           setSelectedPair(pair);
                           setIsSelectorOpen(false);
+                          setSignal(null);
                         }}
-                        className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors ${selectedPair === pair ? 'bg-primary/10 text-primary' : 'text-gray-300'}`}
+                        className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors group ${selectedPair === pair ? 'bg-primary/10' : ''}`}
                       >
                         <TokenIcon pair={pair} size="sm" />
-                        <span className="font-medium">{pair}</span>
-                        {selectedPair === pair && <div className="w-1.5 h-1.5 rounded-full bg-primary ml-auto" />}
+                        <div className="flex flex-col">
+                            <span className={`font-medium text-sm ${selectedPair === pair ? 'text-primary' : 'text-gray-200 group-hover:text-white'}`}>{pair}</span>
+                            <span className="text-[10px] text-gray-500">Perpetual Contract</span>
+                        </div>
+                        {selectedPair === pair && <div className="w-1.5 h-1.5 rounded-full bg-primary ml-auto box-content border-2 border-[#1a1a1a]" />}
                       </button>
                     ))}
                   </div>
@@ -219,8 +269,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
              Terminal
            </button>
            <button 
+             onClick={() => setCurrentView(ViewState.AI_TRADER)}
+             className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${currentView === ViewState.AI_TRADER ? 'bg-primary/20 text-primary shadow-sm' : 'text-gray-400 hover:text-white'}`}
+           >
+             <BrainCircuit className="w-3 h-3" />
+             AI Trader
+           </button>
+           <button 
              onClick={() => setCurrentView(ViewState.WHALE_ANALYSIS)}
-             className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${currentView === ViewState.WHALE_ANALYSIS ? 'bg-primary/20 text-primary shadow-sm' : 'text-gray-400 hover:text-white'}`}
+             className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${currentView === ViewState.WHALE_ANALYSIS ? 'bg-secondary/20 text-secondary shadow-sm' : 'text-gray-400 hover:text-white'}`}
            >
              <BarChart2 className="w-3 h-3" />
              Whale Analysis
@@ -229,6 +286,32 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
         {/* Right Header Actions */}
         <div className="flex items-center gap-4">
+          
+          {/* AI AGENT TOGGLE */}
+          <button 
+             onClick={toggleAI}
+             className={`flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full border transition-all group ${
+               isAIActive 
+                 ? 'bg-primary/20 border-primary/50 text-primary shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
+                 : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+             }`}
+          >
+             {isAIActive ? (
+                <div className="relative">
+                  <Bot className="w-4 h-4 md:w-5 md:h-5 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full animate-ping" />
+                </div>
+             ) : (
+                <Bot className="w-4 h-4 md:w-5 md:h-5" />
+             )}
+             <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:block">
+               {isAIActive ? 'AI Active' : 'Enable AI'}
+             </span>
+             {isAIActive && (
+               <Power className="w-3 h-3 ml-1 text-primary animate-pulse" />
+             )}
+          </button>
+
           <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-full">
             <Wallet className="w-3 h-3 md:w-4 md:h-4 text-emerald-400" />
             <div className="flex flex-col items-end leading-none">
@@ -250,28 +333,47 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
       {/* Main Content Area */}
       <main className="flex-1 p-4 md:p-6 overflow-hidden relative">
         
-        {/* DESKTOP LAYOUT (Hidden on mobile) */}
+        {/* DESKTOP LAYOUT */}
         <div className="hidden md:block h-full">
             {currentView === ViewState.DASHBOARD ? (
             <div className="max-w-[1920px] mx-auto h-full grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* LEFT COLUMN (Charts & Data) */}
                 <div className="lg:col-span-8 xl:col-span-9 flex flex-col gap-6">
-                <div className="relative group">
-                    {marketState && marketState.pair === selectedPair ? (
+                <div className="relative group flex flex-col gap-2">
+                    {/* Timeframe Selector */}
+                    <div className="flex items-center gap-2 mb-1">
+                        {['1m', '5m', '15m', '30m', '1h', '4h'].map((tf) => (
+                            <button
+                                key={tf}
+                                onClick={() => handleTimeframeChange(tf as Timeframe)}
+                                className={`px-3 py-1 rounded text-xs font-bold transition-all border ${
+                                    selectedTimeframe === tf 
+                                    ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
+                                    : 'bg-white/5 text-gray-400 border-transparent hover:text-white hover:bg-white/10'
+                                }`}
+                            >
+                                {tf}
+                            </button>
+                        ))}
+                    </div>
+
+                    {displayState ? (
                     <Chart 
-                        data={marketState.candles} 
-                        indicators={marketState.indicators} 
-                        pair={selectedPair} 
+                        data={displayState.candles} 
+                        indicators={displayState.indicators} 
+                        pair={selectedPair}
+                        aiSignal={signal}
+                        isAIActive={isAIActive}
                     />
                     ) : (
-                    <div className="h-[450px] glass-panel rounded-xl flex flex-col items-center justify-center gap-4">
+                    <div className="h-[450px] glass-panel rounded-xl flex flex-col items-center justify-center gap-4 animate-in fade-in duration-200">
                         <Activity className="w-10 h-10 text-primary animate-spin" />
-                        <span className="text-sm font-mono text-gray-400">CONNECTING FEED: {selectedPair}...</span>
+                        <span className="text-sm font-mono text-gray-400">SYNCING FEED: {selectedPair}...</span>
                     </div>
                     )}
                 </div>
 
-                <IndicatorMetrics marketState={marketState} />
+                <IndicatorMetrics marketState={displayState} />
 
                 <PositionsTable 
                     positions={positions} 
@@ -284,9 +386,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-6">
                 <div className="flex-1 min-h-[500px]">
                     <TradePanel 
-                    marketState={marketState && marketState.pair === selectedPair ? marketState : null} 
-                    balance={balance} 
-                    onExecuteTrade={handleExecuteTrade} 
+                        marketState={displayState} 
+                        balance={balance} 
+                        onExecuteTrade={handleExecuteTrade} 
                     />
                 </div>
                 <div className="h-auto">
@@ -298,10 +400,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 </div>
                 </div>
             </div>
+            ) : currentView === ViewState.AI_TRADER ? (
+               /* AI TRADER VIEW (Desktop) */
+               <div className="max-w-7xl mx-auto h-full animate-in fade-in duration-300">
+                  <AiTrader marketState={displayState} />
+               </div>
             ) : (
             /* WHALE ANALYSIS VIEW (Desktop) */
             <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
-                <WhaleAnalysis marketState={marketState} />
+                <WhaleAnalysis marketState={displayState} />
             </div>
             )}
         </div>
@@ -312,19 +419,37 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {mobileTab === 'MARKET' && (
                     <div className="flex flex-col gap-4">
-                        {marketState && marketState.pair === selectedPair ? (
+                        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {['1m', '5m', '15m', '30m', '1h'].map((tf) => (
+                                <button
+                                    key={tf}
+                                    onClick={() => handleTimeframeChange(tf as Timeframe)}
+                                    className={`px-3 py-1.5 rounded text-xs font-bold transition-all border whitespace-nowrap ${
+                                        selectedTimeframe === tf 
+                                        ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
+                                        : 'bg-white/5 text-gray-400 border-transparent'
+                                    }`}
+                                >
+                                    {tf}
+                                </button>
+                            ))}
+                        </div>
+
+                        {displayState ? (
                             <Chart 
-                                data={marketState.candles} 
-                                indicators={marketState.indicators} 
+                                data={displayState.candles} 
+                                indicators={displayState.indicators} 
                                 pair={selectedPair} 
+                                aiSignal={signal}
+                                isAIActive={isAIActive}
                             />
                         ) : (
                             <div className="h-[350px] glass-panel rounded-xl flex flex-col items-center justify-center gap-4">
                                 <Activity className="w-10 h-10 text-primary animate-spin" />
-                                <span className="text-xs font-mono text-gray-400">LOADING FEED...</span>
+                                <span className="text-xs font-mono text-gray-400">SYNCING FEED...</span>
                             </div>
                         )}
-                        <IndicatorMetrics marketState={marketState} />
+                        <IndicatorMetrics marketState={displayState} />
                     </div>
                 )}
 
@@ -336,7 +461,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                             onGenerate={handleGenerateSignal} 
                         />
                         <TradePanel 
-                            marketState={marketState && marketState.pair === selectedPair ? marketState : null} 
+                            marketState={displayState} 
                             balance={balance} 
                             onExecuteTrade={handleExecuteTrade} 
                         />
@@ -353,8 +478,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     </div>
                 )}
 
+                {mobileTab === 'AI_TRADER' && (
+                    <AiTrader marketState={displayState} />
+                )}
+
                 {mobileTab === 'WHALE' && (
-                    <WhaleAnalysis marketState={marketState} />
+                    <WhaleAnalysis marketState={displayState} />
                 )}
              </div>
         </div>
@@ -379,6 +508,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
              <span className="text-[10px] font-medium">Trade</span>
           </button>
 
+           <button 
+            onClick={() => setMobileTab('AI_TRADER')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mobileTab === 'AI_TRADER' ? 'text-primary' : 'text-gray-500'}`}
+          >
+             <BrainCircuit className="w-5 h-5" />
+             <span className="text-[10px] font-medium">AI Agent</span>
+          </button>
+
           <button 
             onClick={() => setMobileTab('POSITIONS')}
             className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors relative ${mobileTab === 'POSITIONS' ? 'text-primary' : 'text-gray-500'}`}
@@ -391,7 +528,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     </span>
                 )}
              </div>
-             <span className="text-[10px] font-medium">Positions</span>
+             <span className="text-[10px] font-medium">Pos</span>
           </button>
 
           <button 

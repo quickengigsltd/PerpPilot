@@ -1,5 +1,5 @@
 
-import { Candle, MarketState, AdvancedMetrics, WhaleStats, MacroStats } from '../types';
+import { Candle, MarketState, AdvancedMetrics, WhaleStats, MacroStats, Timeframe } from '../types';
 import { calculateIndicators } from './indicators';
 
 // Constants for Binance API
@@ -10,10 +10,39 @@ const BINANCE_REST_BASE = 'https://api.binance.com/api/v3';
 const SYMBOL_MAP: Record<string, string> = {
   'BTC/USDT': 'btcusdt',
   'ETH/USDT': 'ethusdt',
+  'BNB/USDT': 'bnbusdt',
   'SOL/USDT': 'solusdt',
   'XRP/USDT': 'xrpusdt',
   'DOGE/USDT': 'dogeusdt',
+  'ADA/USDT': 'adausdt',
+  'AVAX/USDT': 'avaxusdt',
+  'SHIB/USDT': 'shibusdt',
+  'DOT/USDT': 'dotusdt',
+  'LINK/USDT': 'linkusdt',
+  'TRX/USDT': 'trxusdt',
+  'MATIC/USDT': 'maticusdt',
+  'BCH/USDT': 'bchusdt',
+  'UNI/USDT': 'uniusdt',
+  'LTC/USDT': 'ltcusdt',
+  'NEAR/USDT': 'nearusdt',
+  'APT/USDT': 'aptusdt',
+  'ICP/USDT': 'icpusdt',
+  'ETC/USDT': 'etcusdt',
+  'FIL/USDT': 'filusdt',
+  'ARB/USDT': 'arbusdt',
+  'RNDR/USDT': 'rndrusdt',
+  'ATOM/USDT': 'atomusdt',
+  'STX/USDT': 'stxusdt',
+  'INJ/USDT': 'injusdt',
+  'OP/USDT': 'opusdt',
+  'IMX/USDT': 'imxusdt',
   'RUNE/USDT': 'runeusdt',
+  'PEPE/USDT': 'pepeusdt',
+  'WIF/USDT': 'wifusdt',
+  'BONK/USDT': 'bonkusdt',
+  'FET/USDT': 'fetusdt',
+  'AGIX/USDT': 'agixusdt',
+  'AAVE/USDT': 'aaveusdt'
 };
 
 interface MetricState {
@@ -32,6 +61,7 @@ export class MarketService {
   private listeners: Array<(pair: string, data: MarketState) => void> = [];
   private ws: WebSocket | null = null;
   private isConnected = false;
+  private activeTimeframe: Timeframe = '1m';
 
   constructor() {
     // Initialize empty state
@@ -62,76 +92,88 @@ export class MarketService {
     return this.latestStates[pair] || null;
   }
 
+  // Switch Timeframe (Fetch new history, but keep 1m WS for live price)
+  async switchTimeframe(tf: Timeframe) {
+      if (tf === this.activeTimeframe) return;
+      
+      this.activeTimeframe = tf;
+      console.log(`Switching timeframe to ${tf}`);
+      
+      // Re-fetch history for all pairs (or just active one if we want to optimize)
+      // For simplicity, we fetch all to keep cache valid
+      await this.fetchAllHistory();
+  }
+
   private async fetchAllHistory() {
     const promises = Object.keys(SYMBOL_MAP).map(async (pair) => {
       try {
         const symbol = SYMBOL_MAP[pair].toUpperCase();
         
-        // Fetch 1m Candles for Charting (Last 100 minutes)
-        const klineResponse = await fetch(`${BINANCE_REST_BASE}/klines?symbol=${symbol}&interval=1m&limit=100`);
+        // Fetch Candles for Selected Timeframe (Last 100 bars)
+        const klineResponse = await fetch(`${BINANCE_REST_BASE}/klines?symbol=${symbol}&interval=${this.activeTimeframe}&limit=100`);
         const klineData = await klineResponse.json();
         
         // Fetch 1d Candles for Macro Context (Last 30 Days)
         const dailyResponse = await fetch(`${BINANCE_REST_BASE}/klines?symbol=${symbol}&interval=1d&limit=30`);
         const dailyData = await dailyResponse.json();
 
-        // Parse Binance format for 1m candles
-        const candles: Candle[] = klineData.map((d: any[]) => ({
-          time: d[0],
-          open: parseFloat(d[1]),
-          high: parseFloat(d[2]),
-          low: parseFloat(d[3]),
-          close: parseFloat(d[4]),
-          volume: parseFloat(d[5]),
-        }));
+        // Check for error responses
+        if (Array.isArray(klineData) && Array.isArray(dailyData)) {
+            // Parse Binance format for candles
+            const candles: Candle[] = klineData.map((d: any[]) => ({
+            time: d[0],
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+            volume: parseFloat(d[5]),
+            }));
 
-        this.data[pair] = candles;
-        
-        // --- MACRO STATS CALCULATION ---
-        if (dailyData && dailyData.length > 0) {
-            // Calculate Macro Stats from 30 days data
-            const dailyHighs = dailyData.map((d: any[]) => parseFloat(d[2]));
-            const dailyLows = dailyData.map((d: any[]) => parseFloat(d[3]));
-            const currentClose = parseFloat(dailyData[dailyData.length - 1][4]);
+            this.data[pair] = candles;
             
-            const high30d = Math.max(...dailyHighs);
-            const low30d = Math.min(...dailyLows);
-            
-            // Calc current volumes for today
-            const today = dailyData[dailyData.length - 1];
-            const totalVolUSD = parseFloat(today[7]);
-            const buyVolUSD = parseFloat(today[10]);
-            const sellVolUSD = totalVolUSD - buyVolUSD;
-            
-            if (this.metricState[pair]) {
-                this.metricState[pair].realBuyVolume1D = buyVolUSD;
-                this.metricState[pair].realSellVolume1D = sellVolUSD;
+            // --- MACRO STATS CALCULATION ---
+            if (dailyData && dailyData.length > 0) {
+                // Calculate Macro Stats from 30 days data
+                const dailyHighs = dailyData.map((d: any[]) => parseFloat(d[2]));
+                const dailyLows = dailyData.map((d: any[]) => parseFloat(d[3]));
+                const currentClose = parseFloat(dailyData[dailyData.length - 1][4]);
                 
-                // Determine 30d Trend
-                const firstPrice = parseFloat(dailyData[0][4]);
-                const trendDiff = ((currentClose - firstPrice) / firstPrice) * 100;
-                let trend30d: 'UP' | 'DOWN' | 'SIDEWAYS' = 'SIDEWAYS';
-                if (trendDiff > 10) trend30d = 'UP';
-                else if (trendDiff < -10) trend30d = 'DOWN';
+                const high30d = Math.max(...dailyHighs);
+                const low30d = Math.min(...dailyLows);
+                
+                // Calc current volumes for today
+                const today = dailyData[dailyData.length - 1];
+                const totalVolUSD = parseFloat(today[7]);
+                const buyVolUSD = parseFloat(today[10]);
+                const sellVolUSD = totalVolUSD - buyVolUSD;
+                
+                if (this.metricState[pair]) {
+                    this.metricState[pair].realBuyVolume1D = buyVolUSD;
+                    this.metricState[pair].realSellVolume1D = sellVolUSD;
+                    
+                    // Determine 30d Trend
+                    const firstPrice = parseFloat(dailyData[0][4]);
+                    const trendDiff = ((currentClose - firstPrice) / firstPrice) * 100;
+                    let trend30d: 'UP' | 'DOWN' | 'SIDEWAYS' = 'SIDEWAYS';
+                    if (trendDiff > 10) trend30d = 'UP';
+                    else if (trendDiff < -10) trend30d = 'DOWN';
 
-                // Store in metric state (or we can attach directly to market state later)
-                // For now, we calculate it dynamically in notify() or store transiently.
-                // We will add it to the MarketState in notify().
-                (this.metricState[pair] as any).macro = {
-                    high30d,
-                    low30d,
-                    drawdownFromHigh: ((high30d - currentClose) / high30d) * 100,
-                    pumpFromLow: ((currentClose - low30d) / low30d) * 100,
-                    trend30d
-                };
+                    (this.metricState[pair] as any).macro = {
+                        high30d,
+                        low30d,
+                        drawdownFromHigh: ((high30d - currentClose) / high30d) * 100,
+                        pumpFromLow: ((currentClose - low30d) / low30d) * 100,
+                        trend30d
+                    };
+                }
             }
+            
+            // Initial CVD calc from 1m candles
+            this.initializeMetrics(pair, candles, klineData);
+            this.notify(pair);
         }
-        
-        // Initial CVD calc from 1m candles
-        this.initializeMetrics(pair, candles, klineData);
-        this.notify(pair);
       } catch (e) {
-        console.error(`Failed to fetch history for ${pair}`, e);
+        console.warn(`Failed to fetch history for ${pair}. It might be delisted or rate limited.`);
       }
     });
     await Promise.all(promises);
@@ -161,6 +203,10 @@ export class MarketService {
   private connectWebSocket() {
     if (this.ws) return;
 
+    // Stream 1m klines for LIVE updates. We will apply them to the active timeframe.
+    // NOTE: For perfect 15m/30m candles live, we'd need to aggregate or subscribe to those streams.
+    // For simplicity/robustness in this demo, we update the *current* candle in our timeframe array 
+    // using the live 1m updates, which works well for "most recent price".
     const streams = Object.values(SYMBOL_MAP).map(s => `${s}@kline_1m`).join('/');
     this.ws = new WebSocket(`${BINANCE_WS_BASE}?streams=${streams}`);
 
@@ -203,24 +249,31 @@ export class MarketService {
     };
   }
 
-  private handleNewCandle(pair: string, candle: Candle, isClosed: boolean, takerBuyVolume: number) {
+  private handleNewCandle(pair: string, liveCandle: Candle, isClosed: boolean, takerBuyVolume: number) {
     const currentHistory = this.data[pair];
-    if (!currentHistory) return;
+    if (!currentHistory || currentHistory.length === 0) return;
 
     const lastCandle = currentHistory[currentHistory.length - 1];
     let updatedHistory = [...currentHistory];
     
-    if (lastCandle && lastCandle.time === candle.time) {
-      updatedHistory[updatedHistory.length - 1] = candle;
-    } else {
-      updatedHistory.push(candle);
-      if (updatedHistory.length > 200) updatedHistory.shift();
-    }
+    // Logic: If active timeframe is 1m, behaves normally.
+    // If active timeframe is 15m, we update the *last* candle's Close/High/Low with the live 1m data.
+    // We do NOT append new candles from 1m stream to a 15m chart (that would break x-axis).
+    // We rely on the fetchAllHistory to populate the core structure, and live price updates the tip.
+    
+    // Update the latest candle tip with live price
+    updatedHistory[updatedHistory.length - 1] = {
+        ...lastCandle,
+        close: liveCandle.close,
+        high: Math.max(lastCandle.high, liveCandle.high),
+        low: Math.min(lastCandle.low, liveCandle.low),
+        volume: lastCandle.volume + liveCandle.volume // Approximate accumulation
+    };
 
     this.data[pair] = updatedHistory;
     
     // Update live metrics
-    this.updateRealtimeMetrics(pair, candle, takerBuyVolume);
+    this.updateRealtimeMetrics(pair, liveCandle, takerBuyVolume);
     this.notify(pair);
   }
 
@@ -271,7 +324,8 @@ export class MarketService {
                 buyVolume: binanceBuy,
                 sellVolume: binanceSell,
                 buyPercent: binanceBuyPct,
-                sellPercent: 100 - binanceBuyPct
+                sellPercent: 100 - binanceBuyPct,
+                volume: totalBinance
             };
         }
 
@@ -289,7 +343,8 @@ export class MarketService {
             buyVolume: buyVol,
             sellVolume: sellVol,
             buyPercent: projectedBuyPct,
-            sellPercent: 100 - projectedBuyPct
+            sellPercent: 100 - projectedBuyPct,
+            volume: vol
         };
     });
 
@@ -380,7 +435,8 @@ export class MarketService {
       indicators,
       whaleStats,
       macroStats,
-      isRealtime: true
+      isRealtime: true,
+      timeframe: this.activeTimeframe
     };
     
     // Update cache
