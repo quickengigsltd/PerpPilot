@@ -115,9 +115,10 @@ export const generateAISignal = async (
   }
 };
 
-// --- NEW GEM HUNTER LOGIC ---
+// --- NEW GEM HUNTER / SCALP SNIPER LOGIC ---
 export const analyzeTokenPotential = async (
-    marketState: MarketState
+    marketState: MarketState,
+    mode: 'GEM' | 'SCALP'
 ): Promise<GemAnalysis> => {
     const { pair, price, indicators, metrics, macroStats } = marketState;
 
@@ -125,33 +126,47 @@ export const analyzeTokenPotential = async (
 
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // Calculate Drawdown
+    // Calculate Drawdown for Gem Mode
     const drawdown = macroStats ? macroStats.drawdownFromHigh : 0;
-    const isDip = drawdown > 20;
+    
+    let prompt = "";
 
-    const prompt = `
-        ROLE: You are an Elite Crypto VC Sniper and Gem Hunter.
-        OBJECTIVE: Analyze this token pair and tell me if it's a "Hidden Gem" or a "Good Dip Buy" for 3x-10x returns.
-        
-        **TOKEN DATA (${pair})**:
-        - Current Price: $${price}
-        - 30-Day Drawdown: -${drawdown.toFixed(2)}% (Distance from High)
-        - RSI (14): ${indicators.rsi.toFixed(2)}
-        - Trend (EMA200): ${price > indicators.ema200 ? 'Above (Bullish)' : 'Below (Accumulation/Bearish)'}
-        - Volume Activity: ${indicators.vpaStatus}
-        - Whale Activity (CVD): ${metrics.cvd > 0 ? 'Accumulating' : 'Distributing'}
-        
-        **ANALYSIS TASKS**:
-        1. **Dip Quality**: Is this a generic dump or a golden entry zone?
-        2. **Multiplier Potential**: Based on volatility and drawdown, can this do a 3x or 5x soon?
-        3. **Verdict**: 
-           - "GENERATIONAL_BUY" (Perfect entry, high whale activity, deep dip)
-           - "GOOD_DIP" (Solid entry, decent risk/reward)
-           - "WAIT_LOWER" (Falling knife, wait)
-           - "DO_NOT_TOUCH" (Dead coin, no volume)
-        
-        Provide the result in JSON format.
-    `;
+    if (mode === 'GEM') {
+        prompt = `
+            ROLE: You are an Elite Crypto VC and Gem Hunter.
+            OBJECTIVE: Analyze if ${pair} is a "Hidden Gem" or "Good Dip Buy" for a swing trade.
+            
+            **DATA**:
+            - Price: ${price}
+            - 30d Drawdown: -${drawdown.toFixed(2)}%
+            - RSI: ${indicators.rsi.toFixed(2)}
+            - Trend (EMA200): ${price > indicators.ema200 ? 'Bullish' : 'Bearish'}
+            - Whale Activity: ${metrics.cvd > 0 ? 'Accumulating' : 'Distributing'}
+            
+            Analyze the "Dip Quality". Is it a falling knife or a golden entry?
+            Return a risk score, entry zone, and potential multiplier (e.g. 2x, 5x).
+        `;
+    } else {
+        // SCALP MODE
+        prompt = `
+            ROLE: You are a High-Frequency Scalp Trader (Sniper).
+            OBJECTIVE: Find a high-probability SHORT-TERM trade setup (Scalp) for ${pair} right now.
+            
+            **CHART DATA**:
+            - Current Price: ${price}
+            - RSI (14): ${indicators.rsi.toFixed(2)} (Overbought > 70, Oversold < 30)
+            - Bollinger Bands: Upper=${indicators.bollingerUpper.toFixed(4)}, Lower=${indicators.bollingerLower.toFixed(4)}
+            - Volume Status: ${indicators.vpaStatus}
+            - Order Flow: ${metrics.orderFlow.buyingPressure > 50 ? 'Bullish Flow' : 'Bearish Flow'}
+            
+            **TASK**:
+            1. Determine immediate direction (LONG SCALP or SHORT SCALP).
+            2. Define a precise ENTRY ZONE (e.g. current price or slight pullback).
+            3. Define a tight STOP LOSS.
+            4. Define 3 Take Profit Targets (TP1, TP2, TP3).
+            5. Rate the Volatility and Volume flow (0-10).
+        `;
+    }
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -162,19 +177,27 @@ export const analyzeTokenPotential = async (
                 type: Type.OBJECT,
                 properties: {
                     pair: { type: Type.STRING },
-                    score: { type: Type.NUMBER, description: "0 to 100 Gem Score" },
-                    verdict: { type: Type.STRING, enum: ['GENERATIONAL_BUY', 'GOOD_DIP', 'WAIT_LOWER', 'DO_NOT_TOUCH'] },
-                    potentialMultiplier: { type: Type.STRING, description: "e.g. '2x - 5x'" },
+                    mode: { type: Type.STRING, enum: ['GEM', 'SCALP'] },
+                    score: { type: Type.NUMBER, description: "0-100 Confidence Score" },
+                    verdict: { 
+                        type: Type.STRING, 
+                        enum: ['GENERATIONAL_BUY', 'GOOD_DIP', 'WAIT_LOWER', 'DO_NOT_TOUCH', 'LONG_SCALP', 'SHORT_SCALP', 'WAIT_FOR_ENTRY'] 
+                    },
+                    potentialMultiplier: { type: Type.STRING, description: "For Gem: '3x'. For Scalp: '1.5%'" },
                     riskLevel: { type: Type.STRING, enum: ['DEGEN', 'HIGH', 'MODERATE', 'SAFE'] },
+                    entryZone: { type: Type.STRING, description: "Specific price range" },
+                    stopLoss: { type: Type.STRING, description: "Specific price" },
+                    tpTargets: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Array of 3 price targets" },
+                    volumeScore: { type: Type.NUMBER, description: "0-10" },
+                    volatilityScore: { type: Type.NUMBER, description: "0-10" },
                     keyCatalysts: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    entryZone: { type: Type.STRING },
-                    analysis: { type: Type.STRING, description: "Short, punchy sniper analysis." }
+                    analysis: { type: Type.STRING, description: "Brief strategic summary." }
                 },
-                required: ["pair", "score", "verdict", "potentialMultiplier", "riskLevel", "entryZone", "analysis"]
+                required: ["pair", "score", "verdict", "entryZone", "stopLoss", "tpTargets", "analysis", "volumeScore", "volatilityScore"]
             }
         }
     });
 
     const result = JSON.parse(response.text);
-    return result as GemAnalysis;
+    return { ...result, mode };
 };

@@ -85,12 +85,17 @@ export interface AISignal {
 
 export interface GemAnalysis {
   pair: string;
-  score: number; // 0-100 (100 is instant buy)
-  verdict: 'GENERATIONAL_BUY' | 'GOOD_DIP' | 'WAIT_LOWER' | 'DO_NOT_TOUCH';
-  potentialMultiplier: string; // e.g., "2x - 5x"
+  mode: 'GEM' | 'SCALP';
+  score: number; // 0-100
+  verdict: 'GENERATIONAL_BUY' | 'GOOD_DIP' | 'WAIT_LOWER' | 'DO_NOT_TOUCH' | 'LONG_SCALP' | 'SHORT_SCALP' | 'WAIT_FOR_ENTRY';
+  potentialMultiplier: string; // e.g., "2x - 5x" or "1.5% - 3%"
   riskLevel: 'DEGEN' | 'HIGH' | 'MODERATE' | 'SAFE';
-  keyCatalysts: string[];
   entryZone: string;
+  stopLoss: string;
+  tpTargets: string[];
+  volumeScore: number; // 0-10
+  volatilityScore: number; // 0-10
+  keyCatalysts: string[];
   analysis: string;
 }
 

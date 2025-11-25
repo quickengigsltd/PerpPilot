@@ -1,12 +1,32 @@
-
-import React from 'react';
-import { Zap, Shield, BarChart2, Cpu, Check, ArrowRight, BrainCircuit, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Zap, Shield, BarChart2, Cpu, Check, ArrowRight, BrainCircuit, Globe, Crown, Layers, Target, Rocket } from 'lucide-react';
 
 interface LandingPageProps {
   onNavigate: (page: 'LOGIN' | 'SIGNUP' | 'APP' | 'HOW_IT_WORKS') => void;
 }
 
+const SLIDER_IMAGES = [
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade48848808e_67a68d6b29be757dfc90701e_67a22e79348806c4a444ec9e_Flag_Pattern.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade488488088_67a68d6b29be757dfc907027_67a22eb56888b88826bbd554_Ascending_Triangle.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade488488091_67a68d6a29be757dfc907006_67a22eee74d8fe0bf1c7426a_Descending_Triangle.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade4884880a7_67a68d6b29be757dfc907021_67a22f3764bcfa8cae8a7282_Head_and_Shoulders.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade4884880b7_67a68d6b29be757dfc907037_67a22f51704aae6b7cca5df8_Inverse_Head_and_Shoulders.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade488488080_67a68d57fc9fbd954098bff2_67a22f7ea32c74de247eddb9_Double_Top.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade488488094_67a68d6b29be757dfc907024_67a22fa23625a5ce9f7bd19b_Double_bottom.png",
+  "https://cdn.prod.website-files.com/678fb0f1c3f23bcf01f8cff8/67af58c6a39dade48848808b_67a68d6a29be757dfc907003_67a22fdb3625a5ce9f7c16e5_Cup_and_Handle.png"
+];
+
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Automatic Slider Logic
+  useEffect(() => {
+    const interval = setInterval(() => {
+        setCurrentImageIndex((prev) => (prev + 1) % SLIDER_IMAGES.length);
+    }, 3500); // Change every 3.5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-primary/30 overflow-x-hidden relative">
       
@@ -57,10 +77,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
            AI Model v2.5 Now Live
         </div>
         
-        <h1 className="text-4xl md:text-7xl font-black tracking-tight mb-6 md:mb-8 leading-[1.1] md:leading-tight animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
+        <h1 className="text-4xl md:text-7xl font-google-code font-bold tracking-tight mb-6 md:mb-8 leading-[1.1] md:leading-tight animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
            Institutional-Grade <br />
-           {/* TEXT SHIMMER ANIMATION */}
-           <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-[#00f3ff] to-secondary animate-text-shimmer bg-[length:200%_auto]">
+           {/* TEXT SHIMMER ANIMATION WITH NEW GRADIENT */}
+           <span className="bg-clip-text text-transparent bg-[linear-gradient(to_right,#f97316,#a855f7,#ec4899,#ef4444,#eab308,#f97316)] animate-text-shimmer bg-[length:200%_auto] pb-2">
              AI Trading Intelligence
            </span>
         </h1>
@@ -84,21 +104,45 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
            </button>
         </div>
 
-        {/* UI Mockup / Stats */}
+        {/* CHART PATTERN SLIDER */}
         <div className="mt-12 md:mt-20 relative animate-in fade-in zoom-in duration-1000 delay-500 group px-2 md:px-0">
            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent z-10" />
            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
-           <div className="glass-panel border border-white/10 rounded-xl md:rounded-2xl p-2 bg-[#121212]/50 shadow-2xl max-w-4xl mx-auto relative overflow-hidden">
-              <img 
-                 src="https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=2070&auto=format&fit=crop" 
-                 alt="Dashboard Preview" 
-                 className="rounded-lg md:rounded-xl opacity-90 transition-opacity hover:opacity-100"
-              />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-xl border border-white/10 p-4 md:p-6 rounded-xl md:rounded-2xl flex flex-col items-center text-center shadow-2xl animate-in zoom-in duration-700 delay-700 w-[90%] md:w-auto">
-                 <div className="text-primary font-bold tracking-widest uppercase text-[10px] md:text-xs mb-2">Live Performance</div>
-                 <div className="text-3xl md:text-4xl font-black text-white mb-1">+482%</div>
-                 <div className="text-gray-400 text-xs md:text-sm">PnL This Month</div>
+           <div className="glass-panel border border-white/10 rounded-xl md:rounded-2xl p-2 bg-[#121212]/50 shadow-2xl max-w-4xl mx-auto relative overflow-hidden h-[300px] md:h-[500px]">
+              
+              {/* Image Slider */}
+              {SLIDER_IMAGES.map((img, index) => (
+                <div 
+                    key={index}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-100' : 'opacity-0'}`}
+                >
+                    <img 
+                        src={img} 
+                        alt={`Chart Pattern ${index + 1}`} 
+                        className="w-full h-full object-contain md:object-cover rounded-lg md:rounded-xl opacity-90"
+                    />
+                </div>
+              ))}
+
+              {/* Overlay Content */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-xl border border-white/10 p-4 md:p-6 rounded-xl md:rounded-2xl flex flex-col items-center text-center shadow-2xl animate-in zoom-in duration-700 delay-700 w-[90%] md:w-auto z-20">
+                 <div className="text-primary font-bold tracking-widest uppercase text-[10px] md:text-xs mb-2">Live Pattern Recognition</div>
+                 <div className="text-3xl md:text-4xl font-black text-white mb-1">
+                    {['Flag Pattern', 'Ascending Triangle', 'Descending Triangle', 'Head & Shoulders', 'Inverse H&S', 'Double Top', 'Double Bottom', 'Cup & Handle'][currentImageIndex]}
+                 </div>
+                 <div className="text-gray-400 text-xs md:text-sm">Scanning 34 Pairs Real-Time</div>
               </div>
+
+               {/* Slider Indicators */}
+               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                   {SLIDER_IMAGES.map((_, idx) => (
+                       <button 
+                          key={idx}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          className={`w-2 h-2 rounded-full transition-all ${idx === currentImageIndex ? 'bg-primary w-6' : 'bg-white/20'}`}
+                       />
+                   ))}
+               </div>
            </div>
         </div>
       </section>
@@ -141,80 +185,103 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
          </div>
       </section>
 
-      {/* PRICING - REDESIGNED */}
+      {/* PRICING - 4 TIER PLANS */}
       <section id="pricing" className="py-16 md:py-24 relative z-10">
          <div className="max-w-7xl mx-auto px-6">
             <div className="text-center mb-12 md:mb-16">
                <h2 className="text-2xl md:text-5xl font-bold mb-4 md:mb-6">Simple, Transparent Pricing</h2>
-               <p className="text-sm md:text-base text-gray-400">Choose the plan that fits your trading style.</p>
+               <p className="text-sm md:text-base text-gray-400">Choose the plan that fits your trading capital.</p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1400px] mx-auto">
                
-               {/* DEMO */}
-               <div className="glass-panel p-6 md:p-8 rounded-2xl border border-white/5 bg-[#0a0a0a]/60 flex flex-col hover:border-white/20 transition-colors">
-                  <div className="mb-4 text-gray-400 font-bold tracking-widest text-xs md:text-sm uppercase">Starter</div>
-                  <div className="mb-6">
-                     <span className="text-3xl md:text-4xl font-bold text-white">Free</span>
+               {/* PLAN 1: TRIAL */}
+               <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-[#0a0a0a]/60 flex flex-col hover:border-white/20 transition-colors">
+                  <div className="mb-4 text-gray-400 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
+                     <Target className="w-4 h-4" /> Explorer
                   </div>
-                  <p className="text-gray-400 text-sm mb-8">Perfect for testing the waters and paper trading.</p>
-                  <ul className="space-y-4 mb-8 flex-1">
-                     {['Real-time Market Data', 'Basic AI Signals (15m delay)', 'Paper Trading Account', 'Limited Whale Data'].map((item, i) => (
-                        <li key={i} className="flex items-center gap-3 text-sm text-gray-300">
-                           <Check className="w-4 h-4 text-gray-500" /> {item}
-                        </li>
-                     ))}
+                  <div className="mb-6">
+                     <span className="text-3xl font-bold text-white">Free</span>
+                     <span className="text-gray-500 text-sm ml-2">/ 3 Days</span>
+                  </div>
+                  <p className="text-gray-400 text-xs mb-6 h-10">Perfect for backtesting strategies and paper trading.</p>
+                  <ul className="space-y-3 mb-8 flex-1">
+                     <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-gray-500" /> 15m Delayed Data</li>
+                     <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-gray-500" /> Basic Charting</li>
+                     <li className="flex items-center gap-2 text-xs text-gray-300"><Check className="w-3 h-3 text-gray-500" /> 3 Pairs Only</li>
+                     <li className="flex items-center gap-2 text-xs text-gray-500 opacity-50"><Target className="w-3 h-3" /> No AI Signals</li>
                   </ul>
-                  <button onClick={() => onNavigate('APP')} className="w-full py-3 md:py-4 rounded-xl border border-white/10 hover:bg-white/5 font-bold transition-all text-sm md:text-base">
+                  <button onClick={() => onNavigate('APP')} className="w-full py-3 rounded-xl border border-white/10 hover:bg-white/5 font-bold transition-all text-xs uppercase tracking-wide">
                      Try Demo
                   </button>
                </div>
 
-               {/* PRO - HIGHLIGHTED */}
-               <div className="glass-panel p-6 md:p-8 rounded-2xl border border-primary/50 bg-[#0c0c0c]/80 relative flex flex-col transform md:-translate-y-4 shadow-[0_0_40px_rgba(59,130,246,0.15)] hover:shadow-[0_0_60px_rgba(59,130,246,0.25)] transition-all order-first md:order-none mb-6 md:mb-0">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-primary to-neonBlue text-black text-[10px] md:text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wide shadow-lg whitespace-nowrap">
-                     Most Popular
+               {/* PLAN 2: STARTER */}
+               <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-[#0a0a0a]/60 flex flex-col hover:border-blue-500/30 transition-colors">
+                  <div className="mb-4 text-blue-400 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
+                     <Rocket className="w-4 h-4" /> Scout
                   </div>
-                  <div className="mb-4 text-primary font-bold tracking-widest text-xs md:text-sm uppercase">Pro Trader</div>
                   <div className="mb-6 flex items-baseline gap-1">
-                     <span className="text-3xl md:text-4xl font-bold text-white">$49</span>
-                     <span className="text-gray-500">/mo</span>
+                     <span className="text-3xl font-bold text-white">$27</span>
+                     <span className="text-gray-500 text-sm">/mo</span>
                   </div>
-                  <p className="text-gray-400 text-sm mb-8">For serious traders who want an edge.</p>
-                  <ul className="space-y-4 mb-8 flex-1">
-                     {['Real-time AI Sniper Signals', 'Full Whale Analysis Suite', 'Unlimited Paper Trading', 'Priority Execution Speed', 'Private Discord Access'].map((item, i) => (
-                        <li key={i} className="flex items-center gap-3 text-sm text-white font-medium">
-                           <div className="bg-primary/20 p-0.5 rounded-full">
-                             <Check className="w-3 h-3 text-primary" />
-                           </div>
-                           {item}
-                        </li>
-                     ))}
+                  <p className="text-gray-400 text-xs mb-6 h-10">For traders just starting to scale their portfolio.</p>
+                  <ul className="space-y-3 mb-8 flex-1">
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-500" /> Real-time Data</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-500" /> Basic AI Signals</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-500" /> 10 Pairs Watchlist</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-blue-500" /> Discord Access</li>
+                     <li className="flex items-center gap-2 text-xs text-gray-500 opacity-50"><Layers className="w-3 h-3" /> No Whale Data</li>
                   </ul>
-                  <button onClick={() => onNavigate('SIGNUP')} className="w-full py-3 md:py-4 rounded-xl bg-gradient-to-r from-primary to-blue-600 hover:from-blue-400 hover:to-primary text-white font-bold transition-all shadow-lg shadow-primary/25 hover:scale-[1.02] text-sm md:text-base">
-                     Start 7-Day Trial
+                  <button onClick={() => onNavigate('SIGNUP')} className="w-full py-3 rounded-xl border border-blue-500/20 hover:bg-blue-500/10 text-blue-400 font-bold transition-all text-xs uppercase tracking-wide">
+                     Select Starter
                   </button>
                </div>
 
-               {/* YEARLY */}
-               <div className="glass-panel p-6 md:p-8 rounded-2xl border border-white/5 bg-[#0a0a0a]/60 flex flex-col hover:border-secondary/30 transition-colors">
-                  <div className="mb-4 text-secondary font-bold tracking-widest text-xs md:text-sm uppercase">Institutional</div>
+               {/* PLAN 3: PRO (HIGHLIGHTED) */}
+               <div className="glass-panel p-6 rounded-2xl border border-primary bg-[#0c0c0c]/90 relative flex flex-col transform lg:-translate-y-4 shadow-[0_0_40px_rgba(59,130,246,0.15)] z-10">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-primary to-neonBlue text-black text-[10px] font-bold px-4 py-1 rounded-full uppercase tracking-wide shadow-lg whitespace-nowrap">
+                     Most Popular
+                  </div>
+                  <div className="mb-4 text-primary font-bold tracking-widest text-xs uppercase flex items-center gap-2">
+                     <Zap className="w-4 h-4" /> Sniper
+                  </div>
                   <div className="mb-6 flex items-baseline gap-1">
-                     <span className="text-3xl md:text-4xl font-bold text-white">$39</span>
-                     <span className="text-gray-500">/mo</span>
+                     <span className="text-4xl font-black text-white">$75</span>
+                     <span className="text-gray-500 text-sm">/mo</span>
                   </div>
-                  <div className="text-[10px] md:text-xs text-secondary bg-secondary/10 inline-block px-2 py-1 rounded mb-6 border border-secondary/20">
-                     Billed Yearly ($468)
-                  </div>
-                  <ul className="space-y-4 mb-8 flex-1">
-                     {['All Pro Features', 'API Access', 'Dedicated Support', 'Custom Strategy Builder', 'On-chain Alerts'].map((item, i) => (
-                        <li key={i} className="flex items-center gap-3 text-sm text-gray-300">
-                           <Check className="w-4 h-4 text-secondary" /> {item}
-                        </li>
-                     ))}
+                  <p className="text-gray-300 text-xs mb-6 h-10">Full access to AI Scalping & Gem Hunter modules.</p>
+                  <ul className="space-y-3 mb-8 flex-1">
+                     <li className="flex items-center gap-2 text-xs text-white font-bold"><Check className="w-3 h-3 text-primary" /> All AI Modules (Scalp + Gem)</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-primary" /> Unlimited Pairs</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-primary" /> Basic Whale Analytics</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-primary" /> Priority Execution</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-primary" /> Private Strategy Group</li>
                   </ul>
-                  <button onClick={() => onNavigate('SIGNUP')} className="w-full py-3 md:py-4 rounded-xl border border-white/10 hover:bg-white/5 font-bold transition-all hover:border-secondary/50 hover:text-secondary text-sm md:text-base">
-                     Choose Yearly
+                  <button onClick={() => onNavigate('SIGNUP')} className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-blue-600 hover:from-blue-400 hover:to-primary text-white font-bold transition-all shadow-lg shadow-primary/25 hover:scale-[1.02] text-xs uppercase tracking-wide">
+                     Get Sniper Access
+                  </button>
+               </div>
+
+               {/* PLAN 4: WHALE */}
+               <div className="glass-panel p-6 rounded-2xl border border-purple-500/30 bg-[#0a0a0a]/60 flex flex-col hover:border-purple-500/60 transition-colors">
+                  <div className="mb-4 text-purple-400 font-bold tracking-widest text-xs uppercase flex items-center gap-2">
+                     <Crown className="w-4 h-4" /> Whale God
+                  </div>
+                  <div className="mb-6 flex items-baseline gap-1">
+                     <span className="text-3xl font-bold text-white">$190</span>
+                     <span className="text-gray-500 text-sm">/mo</span>
+                  </div>
+                  <p className="text-gray-400 text-xs mb-6 h-10">Institutional grade data with API access.</p>
+                  <ul className="space-y-3 mb-8 flex-1">
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-purple-500" /> Full Whale Depth & CVD</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-purple-500" /> API Key Access</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-purple-500" /> 1-on-1 Strategy Calls</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-purple-500" /> Custom Alert Webhooks</li>
+                     <li className="flex items-center gap-2 text-xs text-white"><Check className="w-3 h-3 text-purple-500" /> Institutional Report</li>
+                  </ul>
+                  <button onClick={() => onNavigate('SIGNUP')} className="w-full py-3 rounded-xl border border-purple-500/20 hover:bg-purple-500/10 text-purple-400 font-bold transition-all text-xs uppercase tracking-wide">
+                     Go Institutional
                   </button>
                </div>
 
