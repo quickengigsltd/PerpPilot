@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { AISignal } from '../types';
 import { BrainCircuit, Zap, Target, Shield, AlertTriangle, PlayCircle, StopCircle, PauseCircle, Activity, Lock, Search } from 'lucide-react';
@@ -61,14 +62,14 @@ const SignalCard: React.FC<SignalCardProps> = ({ signal, isLoading, onGenerate }
     );
   }
 
-  // --- STATE: SIGNAL GENERATED ---
+  // --- STATE: SIGNAL GENERATED (BINARY ONLY) ---
   const isLong = signal.action === 'GO LONG';
-  const isShort = signal.action === 'GO SHORT';
-  const isWait = signal.action === 'WAIT';
+  // Fallback for types, but logic is strictly Long/Short now
+  const isShort = signal.action === 'GO SHORT' || (!isLong && signal.action !== 'GO LONG'); 
 
-  const mainColor = isLong ? 'text-bullish' : isShort ? 'text-bearish' : 'text-gray-400';
-  const bgGlow = isLong ? 'bg-bullish' : isShort ? 'bg-bearish' : 'bg-gray-500';
-  const borderColor = isLong ? 'border-bullish' : isShort ? 'border-bearish' : 'border-gray-700';
+  const mainColor = isLong ? 'text-bullish' : 'text-bearish';
+  const bgGlow = isLong ? 'bg-bullish' : 'bg-bearish';
+  const borderColor = isLong ? 'border-bullish' : 'border-bearish';
   
   return (
     <div className={`glass-panel rounded-xl h-full flex flex-col border-t-2 ${borderColor} relative overflow-hidden shadow-2xl bg-[#080808]`}>

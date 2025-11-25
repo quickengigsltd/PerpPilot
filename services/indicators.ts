@@ -1,5 +1,5 @@
 
-import { Candle, IndicatorValues, AdvancedMetrics, ChartSignal } from '../types';
+import { Candle, IndicatorValues, AdvancedMetrics, ChartSignal, OrderFlowMetrics } from '../types';
 
 export const calculateEMA = (data: number[], period: number): number => {
   if (data.length < period) return data[data.length - 1];
@@ -20,16 +20,6 @@ export const calculateEMASeries = (data: number[], period: number): number[] => 
     emaArray.push(val * k + emaArray[i - 1] * (1 - k));
   }
   return emaArray;
-};
-
-// Helper for MACD Series
-export const calculateMACDSeries = (data: number[], fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) => {
-    const fastEMA = calculateEMASeries(data, fastPeriod);
-    const slowEMA = calculateEMASeries(data, slowPeriod);
-    const macdLine = fastEMA.map((f, i) => f - slowEMA[i]);
-    const signalLine = calculateEMASeries(macdLine, signalPeriod);
-    const histogram = macdLine.map((m, i) => m - signalLine[i]);
-    return { macdLine, signalLine, histogram };
 };
 
 export const calculateStandardDeviation = (data: number[], average: number): number => {
@@ -53,6 +43,30 @@ export const calculateBollingerBands = (data: number[], period: number = 20, mul
     lower: sma - (stdDev * multiplier),
     middle: sma
   };
+};
+
+// Efficient Series Calculation for detecting signals over history
+export const calculateBollingerBandsSeries = (data: number[], period: number = 20, multiplier: number = 2.0) => {
+    const upper: number[] = [];
+    const lower: number[] = [];
+    const middle: number[] = [];
+    
+    for (let i = 0; i < data.length; i++) {
+        if (i < period) {
+            // Not enough data yet, just use current price to avoid crashes
+            upper.push(data[i]);
+            lower.push(data[i]);
+            middle.push(data[i]);
+            continue;
+        }
+        const slice = data.slice(i - period + 1, i + 1);
+        const sma = slice.reduce((a, b) => a + b, 0) / period;
+        const stdDev = calculateStandardDeviation(slice, sma);
+        upper.push(sma + stdDev * multiplier);
+        lower.push(sma - stdDev * multiplier);
+        middle.push(sma);
+    }
+    return { upper, lower, middle };
 };
 
 export const calculateRSI = (closes: number[], period: number = 14): number => {
@@ -119,128 +133,165 @@ export const calculateRSISeries = (closes: number[], period: number = 14): numbe
   return rsiArray;
 };
 
-// --- GUARDIAN AI SIGNAL LOGIC (V4.0 - HYBRID SCALP/TREND) ---
+// --- MICROSTRUCTURE ANALYSIS (THE DEVIL METHOD) ---
+export const calculateOrderFlowMetrics = (
+  candles: Candle[], 
+  cvdHistory: number[]
+): OrderFlowMetrics => {
+  if (candles.length < 20 || cvdHistory.length < 20) {
+    return { imbalanceRatio: 0, cvdDivergence: 'NONE', stopHunt: 'NONE', buyingPressure: 50 };
+  }
+
+  const currentCandle = candles[candles.length - 1];
+  const currentCVD = cvdHistory[cvdHistory.length - 1];
+  
+  // 1. ORDER BOOK IMBALANCE (Simulated via Taker Volume Ratio)
+  const recentVol = candles.slice(-5);
+  let buyVol = 0;
+  let totalVol = 0;
+  recentVol.forEach((c) => {
+     const approxBuy = c.close >= c.open ? c.volume * 0.7 : c.volume * 0.3; 
+     buyVol += approxBuy;
+     totalVol += c.volume;
+  });
+  
+  const imbalanceRaw = totalVol > 0 ? (buyVol / totalVol) : 0.5;
+  const imbalanceRatio = (imbalanceRaw - 0.5) * 2; 
+
+  // 2. CVD DIVERGENCE
+  let cvdDivergence: 'BULLISH' | 'BEARISH' | 'NONE' = 'NONE';
+  const lookback = 20;
+  
+  const prices = candles.map(c => c.close).slice(-lookback);
+  const cvds = cvdHistory.slice(-lookback);
+  
+  const lowestPriceIdx = prices.indexOf(Math.min(...prices));
+  const lowestCVDIdx = cvds.indexOf(Math.min(...cvds));
+  
+  const highestPriceIdx = prices.indexOf(Math.max(...prices));
+  const highestCVDIdx = cvds.indexOf(Math.max(...cvds));
+
+  if (lowestPriceIdx === prices.length - 1 && lowestCVDIdx !== cvds.length - 1) {
+     const cvdDiff = currentCVD - cvds[lowestCVDIdx];
+     if (cvdDiff > 0) cvdDivergence = 'BULLISH';
+  }
+
+  if (highestPriceIdx === prices.length - 1 && highestCVDIdx !== cvds.length - 1) {
+     const cvdDiff = cvds[highestCVDIdx] - currentCVD;
+     if (cvdDiff > 0) cvdDivergence = 'BEARISH';
+  }
+
+  // 3. STOP HUNT DETECTION
+  let stopHunt: 'BULLISH_SWEEP' | 'BEARISH_SWEEP' | 'NONE' = 'NONE';
+  const prevLow = Math.min(...candles.slice(-10, -2).map(c => c.low));
+  const prevHigh = Math.max(...candles.slice(-10, -2).map(c => c.high));
+
+  if (currentCandle.low < prevLow && currentCandle.close > prevLow) {
+      stopHunt = 'BULLISH_SWEEP';
+  }
+  else if (currentCandle.high > prevHigh && currentCandle.close < prevHigh) {
+      stopHunt = 'BEARISH_SWEEP';
+  }
+
+  // 4. Buying Pressure Score
+  let pressure = 50;
+  pressure += imbalanceRatio * 30; 
+  if (cvdDivergence === 'BULLISH') pressure += 20;
+  if (cvdDivergence === 'BEARISH') pressure -= 20;
+  if (stopHunt === 'BULLISH_SWEEP') pressure += 15;
+  if (stopHunt === 'BEARISH_SWEEP') pressure -= 15;
+
+  return {
+      imbalanceRatio,
+      cvdDivergence,
+      stopHunt,
+      buyingPressure: Math.min(Math.max(pressure, 0), 100)
+  };
+};
+
+// STATE-BASED CLEAN TREND SIGNALS
+// Designed to minimize noise: Max ~2 signals per frame.
+// Logic: Hold profit until trend breaks definitively.
 export const detectSniperSignals = (candles: Candle[], rsiSeries: number[]): ChartSignal[] => {
     const signals: ChartSignal[] = [];
     if (candles.length < 50) return signals;
 
     const closes = candles.map(c => c.close);
     
-    // 1. INDICATOR SERIES
-    const ema200 = calculateEMASeries(closes, 200); // The "Trend Guardian"
-    const ema50 = calculateEMASeries(closes, 50);   // The "Trend Support"
-    const ema21 = calculateEMASeries(closes, 21);   // Slow Scalp
-    const ema9 = calculateEMASeries(closes, 9);     // Fast Scalp
-    
-    const { histogram } = calculateMACDSeries(closes);
+    // EMA 50 is our Major Trend Baseline (The "Anchor")
+    const ema50 = calculateEMASeries(closes, 50);
+    // EMA 20 is our Fast Signal Line
+    const ema20 = calculateEMASeries(closes, 20);
 
-    // Volume SMA for filtering fake moves
-    const volumes = candles.map(c => c.volume);
-    const volSma = volumes.map((v, i) => {
-        const start = Math.max(0, i - 20);
-        const slice = volumes.slice(start, i + 1);
-        return slice.reduce((a, b) => a + b, 0) / slice.length;
-    });
+    let currentPosition: 'LONG' | 'SHORT' | null = null;
+    let lastSignalIndex = 0;
+    const COOLDOWN = 8; // Candles to wait before flipping again (prevents chop)
 
-    const calculateBBAt = (idx: number) => {
-        const slice = closes.slice(Math.max(0, idx - 20), idx + 1);
-        const sma = slice.reduce((a, b) => a + b, 0) / slice.length;
-        const stdDev = calculateStandardDeviation(slice, sma);
-        return { upper: sma + (stdDev * 2.0), lower: sma - (stdDev * 2.0) };
-    };
-
-    // Iterate through candles
-    // We start a bit late to let indicators stabilize
+    // Iterate through history to build state
     for (let i = 50; i < candles.length; i++) {
         const c = candles[i];
-        const prevC = candles[i-1];
         const rsi = rsiSeries[i];
+        const trendBase = ema50[i];
         
-        // Context
-        const trendEMA = ema200[i];
-        const fastEMA = ema9[i];
-        const slowEMA = ema21[i];
-        const prevFastEMA = ema9[i-1];
-        const prevSlowEMA = ema21[i-1];
+        // Skip if within cooldown period of last signal
+        if (i - lastSignalIndex < COOLDOWN) continue;
 
-        const bb = calculateBBAt(i);
-        const volumeHigh = c.volume > volSma[i]; // Above average volume
+        const isAboveTrend = c.close > trendBase;
+        const isBelowTrend = c.close < trendBase;
 
-        // --- STRATEGY 1: SCALP CROSSOVER (EMA 9/21) ---
-        // Fast signals for the "buy sell buy sell" feel, but filtered by RSI to avoid buying tops.
-        const goldenCross = prevFastEMA <= prevSlowEMA && fastEMA > slowEMA;
-        const deathCross = prevFastEMA >= prevSlowEMA && fastEMA < slowEMA;
-
-        // --- STRATEGY 2: TREND PULLBACK ---
-        // Safer signals. Trend is Up, price dips.
-        const isUptrend = c.close > trendEMA;
-        const isDowntrend = c.close < trendEMA;
-
-        // --- LOGIC: BUY SIGNALS ---
-        let buyReason = '';
-        let isBuy = false;
-
-        // A. Safe Trend Pullback
-        if (isUptrend && rsi < 45 && c.low <= ema50[i] * 1.002) {
-             isBuy = true;
-             buyReason = 'Trend Dip';
-        }
-        // B. Scalp Entry (Golden Cross)
-        else if (goldenCross && rsi < 65) { 
-             // Only take cross if not already overbought
-             isBuy = true;
-             buyReason = 'Scalp Cross';
-        }
-        // C. Oversold Reversal (Crash Protection)
-        else if (rsi < 25 && c.close > c.open) {
-             isBuy = true;
-             buyReason = 'Oversold Bounce';
-        }
-
-        if (isBuy) {
-            // Volume Filter: Don't buy on tiny volume unless it's a crash bounce
-            if (buyReason === 'Oversold Bounce' || volumeHigh) {
-                 // Cooldown check: Don't spam BUY if we just bought 2 candles ago
-                 const lastSignal = signals[signals.length - 1];
-                 const minutesSinceLast = lastSignal ? (c.time - lastSignal.time) / 60000 : 999;
-                 
-                 // If flipping from SELL to BUY, instant allowed.
-                 // If BUY to BUY, wait 5 mins.
-                 if (!lastSignal || lastSignal.type === 'SELL' || minutesSinceLast > 3) {
-                     signals.push({ time: c.time, type: 'BUY', price: c.low, reason: buyReason });
+        // --- 1. ENTRY LOGIC ---
+        if (currentPosition === null) {
+            // LONG ENTRY: Price crosses above EMA 50 with decent RSI
+            if (isAboveTrend && closes[i-1] <= ema50[i-1]) {
+                if (rsi > 45) { // Filter weak breakouts
+                    currentPosition = 'LONG';
+                    lastSignalIndex = i;
+                    signals.push({ time: c.time, type: 'BUY', price: c.low, reason: 'Trend Start' });
+                }
+            }
+            // SHORT ENTRY: Price crosses below EMA 50
+            else if (isBelowTrend && closes[i-1] >= ema50[i-1]) {
+                 if (rsi < 55) {
+                    currentPosition = 'SHORT';
+                    lastSignalIndex = i;
+                    signals.push({ time: c.time, type: 'SELL', price: c.high, reason: 'Trend Start' });
                  }
             }
         }
 
-        // --- LOGIC: SELL SIGNALS ---
-        let sellReason = '';
-        let isSell = false;
-
-        // A. Safe Trend Rejection
-        if (isDowntrend && rsi > 55 && c.high >= ema50[i] * 0.998) {
-            isSell = true;
-            sellReason = 'Trend Resist';
-        }
-        // B. Scalp Exit (Death Cross)
-        else if (deathCross && rsi > 35) {
-            isSell = true;
-            sellReason = 'Scalp Cross';
-        }
-        // C. Euphoria Top (Crash Protection)
-        else if (rsi > 80 && c.close < c.open) {
-            isSell = true;
-            sellReason = 'Climax Top';
-        }
-
-        if (isSell) {
-            if (sellReason === 'Climax Top' || volumeHigh) {
-                 const lastSignal = signals[signals.length - 1];
-                 const minutesSinceLast = lastSignal ? (c.time - lastSignal.time) / 60000 : 999;
-                 
-                 if (!lastSignal || lastSignal.type === 'BUY' || minutesSinceLast > 3) {
-                     signals.push({ time: c.time, type: 'SELL', price: c.high, reason: sellReason });
-                 }
+        // --- 2. HOLDING LONG ---
+        else if (currentPosition === 'LONG') {
+            // EXIT: Only sell if price definitively breaks EMA 50 Trend Support
+            if (c.close < trendBase) {
+                currentPosition = null; 
+                // Immediate flip? Check momentum
+                if (rsi < 45) {
+                     currentPosition = 'SHORT';
+                     lastSignalIndex = i;
+                     signals.push({ time: c.time, type: 'SELL', price: c.high, reason: 'Trend Flip' });
+                } else {
+                     lastSignalIndex = i;
+                     signals.push({ time: c.time, type: 'SELL', price: c.high, reason: 'Take Profit' });
+                }
             }
+            // ELSE: DO NOTHING. HOLD THE LONG.
+        }
+
+        // --- 3. HOLDING SHORT ---
+        else if (currentPosition === 'SHORT') {
+            // EXIT: Only buy if price definitively breaks EMA 50 Trend Resistance
+            if (c.close > trendBase) {
+                currentPosition = null;
+                if (rsi > 55) {
+                    currentPosition = 'LONG';
+                    lastSignalIndex = i;
+                    signals.push({ time: c.time, type: 'BUY', price: c.low, reason: 'Trend Flip' });
+                } else {
+                    lastSignalIndex = i;
+                    signals.push({ time: c.time, type: 'BUY', price: c.low, reason: 'Take Profit' });
+                }
+            }
+            // ELSE: DO NOTHING. HOLD THE SHORT.
         }
     }
 
@@ -266,19 +317,18 @@ export const calculateIndicators = (candles: Candle[], metrics: AdvancedMetrics)
     openInterest: 0,
     fundingRate: 0,
     liquidationHeat: 0,
-    btcDominance: 54
+    btcDominance: 54,
+    orderFlow: { imbalanceRatio: 0, cvdDivergence: 'NONE', stopHunt: 'NONE', buyingPressure: 50 },
+    takerRatios: { ratio1d: 1, ratio3d: 1, ratio7d: 1, buyVol1d: 0, sellVol1d: 0 }
   };
 
   let marketStructure: 'BULLISH' | 'BEARISH' | 'RANGING' = 'RANGING';
-  
   if (candles.length > 20) {
       const recentCandles = candles.slice(-15);
       const highs = recentCandles.map(c => c.high);
       const lows = recentCandles.map(c => c.low);
-      
       const firstHalfHigh = Math.max(...highs.slice(0, 7));
       const secondHalfHigh = Math.max(...highs.slice(7));
-      
       const firstHalfLow = Math.min(...lows.slice(0, 7));
       const secondHalfLow = Math.min(...lows.slice(7));
 

@@ -17,12 +17,29 @@ export interface ChartSignal {
   reason: string;
 }
 
+export interface OrderFlowMetrics {
+  imbalanceRatio: number; // -1 (Ask Heavy) to 1 (Bid Heavy)
+  cvdDivergence: 'BULLISH' | 'BEARISH' | 'NONE';
+  stopHunt: 'BULLISH_SWEEP' | 'BEARISH_SWEEP' | 'NONE';
+  buyingPressure: number; // 0-100 score
+}
+
+export interface TakerBuySellRatios {
+  ratio1d: number;
+  ratio3d: number;
+  ratio7d: number;
+  buyVol1d: number;
+  sellVol1d: number;
+}
+
 export interface AdvancedMetrics {
   cvd: number; // Cumulative Volume Delta
   openInterest: number;
   fundingRate: number;
   liquidationHeat: number; // -1 (Longs getting rekt) to 1 (Shorts getting rekt)
   btcDominance: number; // Global market context
+  orderFlow: OrderFlowMetrics; // The Devil Method Metrics
+  takerRatios: TakerBuySellRatios; // NEW: 1D/3D/7D Ratios
 }
 
 export interface IndicatorValues {
@@ -33,7 +50,7 @@ export interface IndicatorValues {
   macd: number;
   volumeSma: number;
   
-  // Bollinger Bands (New)
+  // Bollinger Bands
   bollingerUpper: number;
   bollingerLower: number;
   bollingerMiddle: number;
@@ -64,6 +81,17 @@ export interface AISignal {
   reasoning: string;
   timestamp: number;
   indicators: IndicatorValues;
+}
+
+export interface GemAnalysis {
+  pair: string;
+  score: number; // 0-100 (100 is instant buy)
+  verdict: 'GENERATIONAL_BUY' | 'GOOD_DIP' | 'WAIT_LOWER' | 'DO_NOT_TOUCH';
+  potentialMultiplier: string; // e.g., "2x - 5x"
+  riskLevel: 'DEGEN' | 'HIGH' | 'MODERATE' | 'SAFE';
+  keyCatalysts: string[];
+  entryZone: string;
+  analysis: string;
 }
 
 export interface Position {
@@ -133,4 +161,5 @@ export enum ViewState {
   DASHBOARD = 'DASHBOARD',
   WHALE_ANALYSIS = 'WHALE_ANALYSIS',
   AI_TRADER = 'AI_TRADER',
+  GEM_HUNTER = 'GEM_HUNTER',
 }

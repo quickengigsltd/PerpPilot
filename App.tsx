@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import AuthPage from './components/AuthPage';
+import HowItWorks from './components/HowItWorks';
 
-export type AppView = 'LANDING' | 'LOGIN' | 'SIGNUP' | 'APP';
+export type AppView = 'LANDING' | 'LOGIN' | 'SIGNUP' | 'APP' | 'HOW_IT_WORKS';
 
 function App() {
   const [currentView, setCurrentView] = useState<AppView>('LANDING');
@@ -27,6 +28,13 @@ function App() {
          <LandingPage onNavigate={navigateTo} />
        )}
        
+       {currentView === 'HOW_IT_WORKS' && (
+         <HowItWorks 
+            onBack={() => navigateTo('LANDING')} 
+            onStart={() => navigateTo('SIGNUP')}
+         />
+       )}
+
        {(currentView === 'LOGIN' || currentView === 'SIGNUP') && (
          <AuthPage 
             initialView={currentView} 

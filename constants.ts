@@ -7,7 +7,8 @@ export const AVAILABLE_PAIRS = [
   'LTC/USDT', 'NEAR/USDT', 'APT/USDT', 'ICP/USDT', 'ETC/USDT', 
   'FIL/USDT', 'ARB/USDT', 'RNDR/USDT', 'ATOM/USDT', 'STX/USDT',
   'INJ/USDT', 'OP/USDT', 'IMX/USDT', 'RUNE/USDT', 'PEPE/USDT',
-  'WIF/USDT', 'BONK/USDT', 'FET/USDT', 'AGIX/USDT', 'AAVE/USDT'
+  'WIF/USDT', 'BONK/USDT', 'FET/USDT', 'AGIX/USDT', 'AAVE/USDT',
+  'NIL/USDT'
 ];
 
 export const INITIAL_BALANCE = 10000; // Demo money
@@ -50,7 +51,8 @@ export const INITIAL_PRICES: Record<string, number> = {
   'BONK/USDT': 0.000024,
   'FET/USDT': 2.20,
   'AGIX/USDT': 0.95,
-  'AAVE/USDT': 95.00
+  'AAVE/USDT': 95.00,
+  'NIL/USDT': 0.45
 };
 
 export const SIGNAL_COLORS: Record<string, string> = {

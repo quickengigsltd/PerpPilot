@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Zap, Shield, BarChart2, Cpu, Check, ArrowRight, BrainCircuit, Globe } from 'lucide-react';
 
 interface LandingPageProps {
-  onNavigate: (page: 'LOGIN' | 'SIGNUP' | 'APP') => void;
+  onNavigate: (page: 'LOGIN' | 'SIGNUP' | 'APP' | 'HOW_IT_WORKS') => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
@@ -29,9 +30,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
            <span className="text-lg md:text-xl font-bold tracking-tight">Perp<span className="text-primary">Pilot</span></span>
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
+           <button onClick={() => onNavigate('HOW_IT_WORKS')} className="hover:text-white transition-colors">How it Works</button>
            <a href="#features" className="hover:text-white transition-colors">Features</a>
            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-           <a href="#technology" className="hover:text-white transition-colors">Technology</a>
         </div>
         <div className="flex items-center gap-4">
            <button onClick={() => onNavigate('LOGIN')} className="text-sm font-medium text-gray-300 hover:text-white transition-colors hidden sm:block">
@@ -230,6 +231,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
          <p className="text-gray-600 text-xs md:text-sm max-w-md mx-auto mb-6 md:mb-8">
             Trading cryptocurrencies involves significant risk and can result in the loss of your capital. You should not invest more than you can afford to lose.
          </p>
+         
+         {/* Footer Links including How It Works */}
+         <div className="flex justify-center gap-6 mb-8 text-sm text-gray-500">
+             <button onClick={() => onNavigate('HOW_IT_WORKS')} className="hover:text-primary transition-colors">How Our System Works</button>
+             <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
+             <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
+         </div>
+
          <div className="text-gray-700 text-[10px] md:text-xs">
             © 2024 PerpPilot AI. All rights reserved.
          </div>

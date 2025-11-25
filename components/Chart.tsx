@@ -55,6 +55,26 @@ const SellMarker = ({ cx, cy }: any) => {
   );
 };
 
+// AI Live Marker (Pulsing)
+const AISignalMarker = ({ cx, cy, type }: { cx?: number, cy?: number, type: 'LONG' | 'SHORT' }) => {
+    if (!cx || !cy) return null;
+    const color = type === 'LONG' ? '#10B981' : '#EF4444';
+    return (
+        <svg x={cx - 20} y={cy - 20} width="40" height="40" viewBox="0 0 40 40" style={{ overflow: 'visible', zIndex: 100 }}>
+             <circle cx="20" cy="20" r="15" fill={color} fillOpacity="0.2">
+                 <animate attributeName="r" from="15" to="25" dur="1.5s" repeatCount="indefinite" />
+                 <animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite" />
+             </circle>
+             <circle cx="20" cy="20" r="8" fill={color} stroke="white" strokeWidth="2" />
+             {type === 'LONG' ? (
+                 <path d="M20 16L16 20H24L20 16Z" fill="white" />
+             ) : (
+                 <path d="M20 24L16 20H24L20 24Z" fill="white" />
+             )}
+        </svg>
+    );
+};
+
 const CustomTooltip = ({ active, payload, label, chartType, showRSI }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
@@ -75,7 +95,7 @@ const CustomTooltip = ({ active, payload, label, chartType, showRSI }: any) => {
             <div className={`mb-3 text-xs font-bold px-3 py-2 rounded flex flex-col gap-1 border shadow-lg ${data.sniperSignal === 'BUY' ? 'bg-green-900/40 border-green-500/30 shadow-green-900/20' : 'bg-red-900/40 border-red-500/30 shadow-red-900/20'}`}>
                 <div className="flex items-center gap-2 border-b border-white/5 pb-1 mb-1">
                   <Target className={`w-3.5 h-3.5 ${data.sniperSignal === 'BUY' ? 'text-green-400' : 'text-red-400'}`} />
-                  <span className={data.sniperSignal === 'BUY' ? 'text-green-300' : 'text-red-300'}>
+                  <span className={data.sniperSignal === 'BUY' ? 'ENTRY LONG' : 'ENTRY SHORT'} >
                     {data.sniperSignal === 'BUY' ? 'ENTRY LONG' : 'ENTRY SHORT'}
                   </span>
                 </div>
@@ -134,7 +154,7 @@ const Chart: React.FC<ChartProps> = ({ data, pair, aiSignal, isAIActive }) => {
      const rsiSeries = calculateRSISeries(closes, 14);
      
      // 2. DETECT SNIPER SIGNALS (THE GREEN/RED DOTS)
-     // Uses new "Strict Trend + MACD" logic from indicators.ts
+     // Uses STRICT Trend Following Logic to limit dots
      const signals = detectSniperSignals(data, rsiSeries);
      const signalMap: Record<number, { type: 'BUY' | 'SELL', reason: string }> = {};
      signals.forEach(s => {
@@ -188,9 +208,8 @@ const Chart: React.FC<ChartProps> = ({ data, pair, aiSignal, isAIActive }) => {
         const minHeight = c.close * 0.0001; 
         
         // Offset Logic: Place dots slightly further from wicks for visibility
-        // If Buy, put it below Low. If Sell, put it above High.
         const range = c.high - c.low;
-        const padding = range * 0.3; // 30% padding
+        const padding = range * 0.6; // Increased padding
         
         const buyDotY = c.low - padding; 
         const sellDotY = c.high + padding;
@@ -219,6 +238,9 @@ const Chart: React.FC<ChartProps> = ({ data, pair, aiSignal, isAIActive }) => {
   const lastPrice = processedData.length > 0 ? processedData[processedData.length - 1].close : 0;
   const firstPrice = processedData.length > 0 ? processedData[0].close : 0;
   const isPositive = lastPrice >= firstPrice;
+
+  // Derive last candle info for AI Marker
+  const lastCandle = processedData[processedData.length - 1];
 
   return (
     <div className="h-[350px] md:h-[450px] w-full glass-panel rounded-xl p-4 relative overflow-hidden group">
@@ -402,7 +424,7 @@ const Chart: React.FC<ChartProps> = ({ data, pair, aiSignal, isAIActive }) => {
                     key={`div-${index}`}
                     yAxisId="price"
                     x={entry.dateStr}
-                    y={entry.type === 'LOW' ? entry.low : entry.high} 
+                    y={entry.divergence === 'BULLISH' ? entry.low : entry.high}
                     r={3}
                     fill="transparent"
                     stroke={entry.divergence === 'BULLISH' ? '#10B981' : '#EF4444'}
@@ -450,6 +472,26 @@ const Chart: React.FC<ChartProps> = ({ data, pair, aiSignal, isAIActive }) => {
              return null;
           })}
 
+          {/* --- LIVE AI SIGNAL OVERLAY --- */}
+          {aiSignal && lastCandle && (
+             <ReferenceDot
+                yAxisId="price"
+                x={lastCandle.dateStr}
+                y={aiSignal.action === 'GO LONG' ? lastCandle.low : lastCandle.high}
+                shape={<AISignalMarker type={aiSignal.action === 'GO LONG' ? 'LONG' : 'SHORT'} />}
+                ifOverflow="extendDomain"
+             >
+                <Label 
+                    value={aiSignal.action} 
+                    position={aiSignal.action === 'GO LONG' ? 'bottom' : 'top'} 
+                    offset={25}
+                    fill={aiSignal.action === 'GO LONG' ? '#10B981' : '#EF4444'} 
+                    fontWeight="bold"
+                    fontSize={10}
+                />
+             </ReferenceDot>
+          )}
+
           {chartType === 'AREA' ? (
               <>
                  <Line 
@@ -461,18 +503,6 @@ const Chart: React.FC<ChartProps> = ({ data, pair, aiSignal, isAIActive }) => {
                     dot={false} 
                     activeDot={{ r: 6, fill: '#fff', stroke: '#00f3ff', strokeWidth: 2 }}
                     animationDuration={300}
-                  />
-                  {/* Simulated EMA 200 Line */}
-                  <Line 
-                    yAxisId="price" 
-                    type="monotone" 
-                    dataKey="close" 
-                    stroke="#10B981" 
-                    strokeWidth={1} 
-                    strokeOpacity={0.15}
-                    strokeDasharray="10 10"
-                    dot={false} 
-                    isAnimationActive={false}
                   />
               </>
           ) : (

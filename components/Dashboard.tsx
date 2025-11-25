@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { AVAILABLE_PAIRS, INITIAL_BALANCE, INITIAL_PRICES, TIMEFRAMES } from '../constants';
 import { MarketState, Position, AISignal, ViewState, Timeframe } from '../types';
@@ -11,13 +12,14 @@ import IndicatorMetrics from './IndicatorMetrics';
 import TokenIcon from './TokenIcon';
 import WhaleAnalysis from './WhaleAnalysis';
 import AiTrader from './AiTrader';
-import { Wallet, LayoutGrid, ChevronDown, Activity, Zap, BarChart2, LogOut, LineChart, Target, List, Layers, Bot, Power, BrainCircuit, Clock } from 'lucide-react';
+import GemHunter from './GemHunter';
+import { Wallet, LayoutGrid, ChevronDown, Activity, Zap, BarChart2, LogOut, LineChart, Target, List, Layers, Bot, Power, BrainCircuit, Clock, Radar } from 'lucide-react';
 
 interface DashboardProps {
   onLogout: () => void;
 }
 
-type MobileTab = 'MARKET' | 'TRADE' | 'POSITIONS' | 'WHALE' | 'AI_TRADER';
+type MobileTab = 'MARKET' | 'TRADE' | 'POSITIONS' | 'WHALE' | 'AI_TRADER' | 'GEM_HUNTER';
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   // State
@@ -45,8 +47,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   // 2. Handle Timeframe Switch
   const handleTimeframeChange = async (tf: Timeframe) => {
       setSelectedTimeframe(tf);
-      // Temporarily clear market state to show loading
-      // setMarketState(null); // Optional: if we want to show loading spinner
       await marketService.switchTimeframe(tf);
   };
 
@@ -75,44 +75,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     };
   }, [selectedPair]);
 
-  // Reset Signal when pair changes, but keep AI active if it was on (it will regenerate)
-  useEffect(() => {
-    setSignal(null);
-    if (isAIActive) {
-      handleGenerateSignal();
-    }
-  }, [selectedPair, selectedTimeframe]);
-
-  // AI Auto-Pilot Logic
-  useEffect(() => {
-    if (isAIActive) {
-      // Initial call
-      if (!signal && !isGeneratingSignal) {
-        handleGenerateSignal();
-      }
-      
-      // Set interval for every 60 seconds
-      aiIntervalRef.current = setInterval(() => {
-        handleGenerateSignal();
-      }, 60000);
-    } else {
-      if (aiIntervalRef.current) {
-        clearInterval(aiIntervalRef.current);
-        aiIntervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (aiIntervalRef.current) {
-        clearInterval(aiIntervalRef.current);
-      }
-    };
-  }, [isAIActive, selectedPair, selectedTimeframe]); 
-
+  // AI Generator Function
   const handleGenerateSignal = async () => {
     const freshState = marketService.getMarketState(selectedPair);
     if (!freshState) return;
     
+    // Prevent overlapping calls
+    if (isGeneratingSignal) return;
+
     setIsGeneratingSignal(true);
 
     try {
@@ -127,6 +97,43 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
       setIsGeneratingSignal(false);
     }
   };
+
+  // Reset Signal when pair changes, but keep AI active if it was on (it will regenerate)
+  useEffect(() => {
+    setSignal(null);
+    if (isAIActive) {
+      // DEBOUNCE: Wait 1.5s after user stops switching pairs to save API quota
+      const timer = setTimeout(() => {
+        handleGenerateSignal();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedPair, selectedTimeframe]); // handleGenerateSignal is stable if logic inside uses refs/state correctly
+
+  // AI Auto-Pilot Interval Logic (Periodic updates)
+  useEffect(() => {
+    if (isAIActive) {
+      // Initial call is handled by the debounce effect above when enabled/switched
+      
+      // Set interval for every 60 seconds
+      aiIntervalRef.current = setInterval(() => {
+        if (!isGeneratingSignal) {
+           handleGenerateSignal();
+        }
+      }, 60000);
+    } else {
+      if (aiIntervalRef.current) {
+        clearInterval(aiIntervalRef.current);
+        aiIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (aiIntervalRef.current) {
+        clearInterval(aiIntervalRef.current);
+      }
+    };
+  }, [isAIActive, selectedPair, selectedTimeframe]); 
 
   const toggleAI = () => {
     setIsAIActive(!isAIActive);
@@ -276,6 +283,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
              AI Trader
            </button>
            <button 
+             onClick={() => setCurrentView(ViewState.GEM_HUNTER)}
+             className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${currentView === ViewState.GEM_HUNTER ? 'bg-neonBlue/20 text-neonBlue shadow-sm' : 'text-gray-400 hover:text-white'}`}
+           >
+             <Radar className="w-3 h-3" />
+             Gem Sniper
+           </button>
+           <button 
              onClick={() => setCurrentView(ViewState.WHALE_ANALYSIS)}
              className={`px-6 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${currentView === ViewState.WHALE_ANALYSIS ? 'bg-secondary/20 text-secondary shadow-sm' : 'text-gray-400 hover:text-white'}`}
            >
@@ -403,8 +417,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             ) : currentView === ViewState.AI_TRADER ? (
                /* AI TRADER VIEW (Desktop) */
                <div className="max-w-7xl mx-auto h-full animate-in fade-in duration-300">
-                  <AiTrader marketState={displayState} />
+                  <AiTrader marketState={displayState} aiSignal={signal} />
                </div>
+            ) : currentView === ViewState.GEM_HUNTER ? (
+                /* GEM HUNTER VIEW (Desktop) */
+                <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
+                    <GemHunter marketState={displayState} onPairChange={setSelectedPair} />
+                </div>
             ) : (
             /* WHALE ANALYSIS VIEW (Desktop) */
             <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
@@ -479,7 +498,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 )}
 
                 {mobileTab === 'AI_TRADER' && (
-                    <AiTrader marketState={displayState} />
+                    <AiTrader marketState={displayState} aiSignal={signal} />
+                )}
+
+                {mobileTab === 'GEM_HUNTER' && (
+                    <GemHunter marketState={displayState} onPairChange={setSelectedPair} />
                 )}
 
                 {mobileTab === 'WHALE' && (
@@ -506,6 +529,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           >
              <Target className="w-5 h-5" />
              <span className="text-[10px] font-medium">Trade</span>
+          </button>
+
+          <button 
+            onClick={() => setMobileTab('GEM_HUNTER')}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${mobileTab === 'GEM_HUNTER' ? 'text-neonBlue' : 'text-gray-500'}`}
+          >
+             <Radar className="w-5 h-5" />
+             <span className="text-[10px] font-medium">Sniper</span>
           </button>
 
            <button 
